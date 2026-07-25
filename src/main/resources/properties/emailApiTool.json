@@ -1,0 +1,179 @@
+[
+  {
+    "title": "Recipients",
+    "properties": [
+      {
+        "name": "from",
+        "label": "From",
+        "type": "textfield",
+        "description": "Sender address. Supports hash variables."
+      },
+      {
+        "name": "to",
+        "label": "To",
+        "type": "textfield",
+        "required": "true",
+        "description": "Comma separated addresses and/or hash variables."
+      },
+      {
+        "name": "cc",
+        "label": "CC",
+        "type": "textfield"
+      },
+      {
+        "name": "bcc",
+        "label": "BCC",
+        "type": "textfield"
+      }
+    ]
+  },
+  {
+    "title": "Email Template",
+    "properties": [
+      {
+        "name": "templateForm",
+        "label": "Template Form",
+        "type": "selectbox",
+        "required": "true",
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=forms",
+        "description": "Select the form that stores email templates."
+      },
+      {
+        "name": "template",
+        "label": "Template",
+        "type": "selectbox",
+        "required": "true",
+        "options_ajax_on_change": "templateForm",
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=templates",
+        "description": "Select an email template."
+      },
+      {
+        "name": "dynamicParams",
+        "label": "Dynamic Parameters",
+        "type": "grid",
+        "columns": [
+          { "key": "key", "label": "KEY" },
+          { "key": "value", "label": "VALUE" }
+        ],
+        "description": "Map template hash variables to values. Use full @@key@@ format (e.g. @@username@@). Values support hash variables."
+      }
+    ]
+  },
+  {
+    "title": "Attachments",
+    "properties": [
+      {
+        "name": "attachmentsForm",
+        "label": "Attachments Form",
+        "type": "selectbox",
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=forms",
+        "description": "Select the form containing the file upload fields."
+      },
+      {
+        "name": "formUploadFields",
+        "label": "Form Upload Fields",
+        "type": "grid",
+        "columns": [
+          {
+            "key": "fieldId",
+            "label": "FIELD",
+            "options_ajax_on_change": "attachmentsForm",
+            "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=listFields"
+          },
+          {
+            "key": "recordId",
+            "label": "RECORD ID"
+          },
+          {
+            "key": "embed",
+            "label": "EMBED?",
+            "type": "truefalse"
+          }
+        ]
+      },
+      {
+        "name": "files",
+        "label": "Files",
+        "type": "grid",
+        "columns": [
+          { "key": "path", "label": "PATH" },
+          {
+            "key": "type",
+            "label": "TYPE",
+            "options": [
+              { "value": "System Path", "label": "System Path" },
+              { "value": "URL", "label": "URL" }
+            ]
+          },
+          { "key": "fileName", "label": "FILE NAME" },
+          { "key": "embed", "label": "EMBED?", "type": "truefalse" }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "SMTP Settings",
+    "properties": [
+      {
+        "name": "smtpHost",
+        "label": "SMTP Host",
+        "type": "textfield",
+        "required": "true"
+      },
+      {
+        "name": "smtpPort",
+        "label": "SMTP Port",
+        "type": "textfield",
+        "value": "587"
+      },
+      {
+        "name": "smtpUsername",
+        "label": "SMTP Username",
+        "type": "textfield"
+      },
+      {
+        "name": "smtpPassword",
+        "label": "SMTP Password",
+        "type": "password"
+      },
+      {
+        "name": "security",
+        "label": "Security",
+        "type": "selectbox",
+        "options": [
+          {
+            "value": "",
+            "label": "None"
+          },
+          {
+            "value": "TLS",
+            "label": "TLS"
+          },
+          {
+            "value": "SSL",
+            "label": "SSL"
+          }
+        ],
+        "value": "TLS"
+      }
+    ]
+  },
+  {
+    "title": "API Settings",
+    "properties": [
+      {
+        "name": "apiUrl",
+        "label": "API URL",
+        "type": "textfield",
+        "required": "true",
+        "description": "The API endpoint URL to send email requests to. Supports hash variables."
+      },
+      {
+        "name": "apiKey",
+        "label": "API Key",
+        "type": "password",
+        "description": "API key for authentication. Sent as Bearer token in Authorization header. Supports hash variables."
+      }
+    ]
+  }
+]
