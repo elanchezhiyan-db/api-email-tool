@@ -97,18 +97,8 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 LogUtil.warn(getClass().getName(), "API Email Tool: template has empty body");
             }
 
-            LogUtil.info(getClass().getName(),
-                    "API Email Tool DEBUG: assignment=" + assignment
-                    + " appDef=" + appDef
-                    + (appDef != null ? " appId=" + appDef.getId() : ""));
-
             String subject = AppUtil.processHashVariable(template.getSubject(), assignment, null, null, appDef);
             String body = AppUtil.processHashVariable(template.getBody(), assignment, null, null, appDef);
-
-            LogUtil.info(getClass().getName(),
-                    "API Email Tool DEBUG: template body raw=" + template.getBody());
-            LogUtil.info(getClass().getName(),
-                    "API Email Tool DEBUG: body after processHashVariable=" + body);
 
             Object[] dynamicParamsArr = null;
             if (properties.get(ApiEmailToolConstants.PROP_DYNAMIC_PARAMS) instanceof Object[]) {
@@ -133,10 +123,6 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                             "API Email Tool: dynamic parameter replaced " + key + " = " + value);
                 }
             }
-
-            body = htmlToPlainText(body);
-            LogUtil.info(getClass().getName(),
-                    "API Email Tool DEBUG: body after htmlToPlainText=" + body);
 
             from = AppUtil.processHashVariable(from, assignment, null, null, appDef);
             to = AppUtil.processHashVariable(to, assignment, null, null, appDef);
@@ -361,26 +347,5 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
 
     private boolean isBlank(String s) {
         return s == null || s.trim().length() == 0;
-    }
-
-    private String htmlToPlainText(String html) {
-        if (html == null || html.isEmpty()) {
-            return "";
-        }
-        String text = html;
-        text = text.replaceAll("(?i)<br\\s*/?>", "\n");
-        text = text.replaceAll("(?i)</p>", "\n");
-        text = text.replaceAll("(?i)</div>", "\n");
-        text = text.replaceAll("(?i)</li>", "\n");
-        text = text.replaceAll("(?i)<[^>]+>", "");
-        text = text.replace("&nbsp;", " ");
-        text = text.replace("&amp;", "&");
-        text = text.replace("&lt;", "<");
-        text = text.replace("&gt;", ">");
-        text = text.replace("&quot;", "\"");
-        text = text.replace("&#39;", "'");
-        text = text.replaceAll("[ \\t]+", " ");
-        text = text.replaceAll("(\\r?\\n){3,}", "\n\n");
-        return text.trim();
     }
 }
