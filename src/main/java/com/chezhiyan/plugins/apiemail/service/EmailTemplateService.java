@@ -11,4 +11,6 @@ public interface EmailTemplateService {
     EmailTemplate getTemplate(AppDefinition appDef, String formId, String templateId);
 
     Collection<EmailTemplate> getTemplates(AppDefinition appDef, String formId);
+
+    Collection<EmailTemplate> getAllTemplateOptions(AppDefinition appDef);
 }

@@ -71,6 +71,7 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
                     JSONObject attPayload = new JSONObject();
                     attPayload.put("path", att.optString("path", ""));
                     attPayload.put("name", att.optString("name", ""));
+                    attPayload.put("type", att.optString("type", "System Path"));
                     attPayload.put("embed", att.optBoolean("embed", false));
                     attachmentList.put(attPayload);
                 }

@@ -79,14 +79,12 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             String apiUrl = (String) properties.get(ApiEmailToolConstants.PROP_API_URL);
             String apiKey = (String) properties.get(ApiEmailToolConstants.PROP_API_KEY);
 
-            String templateFormId = (String) properties.get(ApiEmailToolConstants.PROP_TEMPLATE_FORM);
             String templateId = (String) properties.get(ApiEmailToolConstants.PROP_TEMPLATE);
-
-            if (isBlank(templateFormId) || isBlank(templateId)) {
+            if (isBlank(templateId)) {
                 throw new PluginException("API Email Tool: no template selected");
             }
 
-            EmailTemplate template = templateService.getTemplate(appDef, templateFormId, templateId);
+            EmailTemplate template = templateService.getTemplate(appDef, "email_templates", templateId);
             if (template == null) {
                 throw new PluginException("API Email Tool: template not found in form");
             }
@@ -100,10 +98,8 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             String subject = AppUtil.processHashVariable(template.getSubject(), assignment, null, null, appDef);
             String body = AppUtil.processHashVariable(template.getBody(), assignment, null, null, appDef);
 
-            Object[] dynamicParamsArr = null;
-            if (properties.get(ApiEmailToolConstants.PROP_DYNAMIC_PARAMS) instanceof Object[]) {
-                dynamicParamsArr = (Object[]) properties.get(ApiEmailToolConstants.PROP_DYNAMIC_PARAMS);
-            }
+            Object rawDynamicParams = properties.get(ApiEmailToolConstants.PROP_DYNAMIC_PARAMS);
+            Object[] dynamicParamsArr = rawDynamicParams instanceof Object[] ? (Object[]) rawDynamicParams : null;
             if (dynamicParamsArr != null && dynamicParamsArr.length > 0) {
                 for (Object o : dynamicParamsArr) {
                     Map mapping = (Map) o;
@@ -132,8 +128,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             apiKey = AppUtil.processHashVariable(apiKey, assignment, null, null, appDef);
 
             String resolvedAttachmentsJson = resolveAttachments(
-                    properties, appDef, assignment,
-                    templateFormId, templateId);
+                    properties, appDef, assignment);
 
             apiEmailSenderService.send(
                     assignment, appDef,
@@ -152,9 +147,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
     private String resolveAttachments(
             Map properties,
             AppDefinition appDef,
-            WorkflowAssignment assignment,
-            String templateFormId,
-            String templateId) {
+            WorkflowAssignment assignment) {
 
         JSONArray result = new JSONArray();
 
@@ -162,10 +155,8 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             String attachmentsFormId =
                     (String) properties.get(ApiEmailToolConstants.PROP_ATTACHMENTS_FORM);
 
-            Object[] fieldsArr = null;
-            if (properties.get(ApiEmailToolConstants.PROP_FORM_UPLOAD_FIELDS) instanceof Object[]) {
-                fieldsArr = (Object[]) properties.get(ApiEmailToolConstants.PROP_FORM_UPLOAD_FIELDS);
-            }
+            Object rawFields = properties.get(ApiEmailToolConstants.PROP_FORM_UPLOAD_FIELDS);
+            Object[] fieldsArr = rawFields instanceof Object[] ? (Object[]) rawFields : null;
 
             if (fieldsArr != null && fieldsArr.length > 0 && !isBlank(attachmentsFormId)) {
                 org.joget.apps.app.service.AppService appService =
@@ -250,11 +241,11 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 }
             }
 
-            Object[] filesArr = null;
             Object rawFiles = properties.get(ApiEmailToolConstants.PROP_FILES);
             LogUtil.info(getClass().getName(),
                     "API Email Tool: files raw type=" + (rawFiles != null ? rawFiles.getClass().getName() : "null")
                     + " value=" + rawFiles);
+            Object[] filesArr = null;
             if (rawFiles instanceof Object[]) {
                 filesArr = (Object[]) rawFiles;
             } else if (rawFiles instanceof String && !isBlank((String)rawFiles)) {
@@ -296,9 +287,23 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     path = AppUtil.processHashVariable(path, assignment, null, null, appDef);
                     fileName = AppUtil.processHashVariable(fileName, assignment, null, null, appDef);
 
+                    if ("URL".equals(type)) {
+                        File resolvedFile = resolveJogetFormUrl(path, appDef);
+                        if (resolvedFile != null && resolvedFile.exists()) {
+                            path = resolvedFile.getAbsolutePath();
+                            if (isBlank(fileName)) {
+                                fileName = resolvedFile.getName();
+                            }
+                            type = "System Path";
+                            LogUtil.info(getClass().getName(),
+                                    "API Email Tool: resolved Joget form URL to local file: " + path);
+                        }
+                    }
+
                     JSONObject att = new JSONObject();
                     att.put("path", path);
                     att.put("name", fileName);
+                    att.put("type", type);
                     att.put("embed", embed);
                     result.put(att);
                 }
@@ -343,6 +348,88 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             LogUtil.warn(getClass().getName(), "Could not resolve app from request: " + e.getMessage());
         }
         return null;
+    }
+
+    private File findFileInElement(
+            org.joget.apps.form.model.Element element,
+            String fileName,
+            String recordId) {
+
+        try {
+            File file = FileUtil.getFile(fileName, element, recordId);
+            if (file != null && file.exists()) {
+                return file;
+            }
+        } catch (Exception ignored) {
+        }
+
+        java.util.Collection<org.joget.apps.form.model.Element> children = element.getChildren();
+        if (children != null) {
+            for (org.joget.apps.form.model.Element child : children) {
+                File found = findFileInElement(child, fileName, recordId);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private File resolveJogetFormUrl(String urlString, AppDefinition appDef) {
+        try {
+            java.net.URL url = new java.net.URL(urlString);
+            String path = url.getPath();
+
+            String pattern = "/form/download/";
+            int idx = path.indexOf(pattern);
+            if (idx < 0) {
+                return null;
+            }
+
+            String after = path.substring(idx + pattern.length());
+            String[] parts = after.split("/");
+            if (parts.length < 3) {
+                return null;
+            }
+
+            String formId = parts[0];
+            String recordId = parts[1];
+            String fileName = parts[2];
+
+            LogUtil.info(getClass().getName(),
+                    "API Email Tool: parsing Joget form URL, formId=" + formId
+                    + " recordId=" + recordId + " fileName=" + fileName);
+
+            org.joget.apps.app.service.AppService appService =
+                    (org.joget.apps.app.service.AppService) AppUtil.getApplicationContext().getBean("appService");
+
+            org.joget.apps.form.model.FormData formDataObj = new org.joget.apps.form.model.FormData();
+            formDataObj.setPrimaryKeyValue(recordId);
+            Form loadForm = appService.viewDataForm(
+                    appDef.getId(), appDef.getVersion().toString(),
+                    formId, null, null, null, formDataObj, null, null);
+
+            if (loadForm == null) {
+                LogUtil.warn(getClass().getName(),
+                        "API Email Tool: form not found for Joget URL: " + formId);
+                return null;
+            }
+
+            File found = findFileInElement(loadForm, fileName, recordId);
+            if (found != null) {
+                return found;
+            }
+
+            LogUtil.warn(getClass().getName(),
+                    "API Email Tool: could not find file " + fileName + " in form " + formId);
+            return null;
+
+        } catch (Exception e) {
+            LogUtil.error(getClass().getName(), e,
+                    "API Email Tool: failed to resolve Joget form URL: " + urlString);
+            return null;
+        }
     }
 
     private boolean isBlank(String s) {

@@ -6,9 +6,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.joget.apps.app.dao.FormDefinitionDao;
 import org.joget.apps.app.model.AppDefinition;
-import org.joget.apps.app.model.FormDefinition;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.dao.FormDataDao;
 import org.joget.apps.form.model.FormRow;
@@ -20,117 +18,58 @@ import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
 
 public class EmailTemplateServiceImpl implements EmailTemplateService {
 
+    private static final String FORM_ID = "email_templates";
+    private static final String TABLE_NAME = "templates";
+
     private static final Set<String> SKIP_FIELDS = new HashSet<String>(
             Arrays.asList(ApiEmailToolConstants.SYSTEM_FIELDS));
 
     @Override
-    public EmailTemplate getTemplate(
-            AppDefinition appDef,
-            String formId,
-            String templateId) {
-
-        if (appDef == null
-                || isBlank(formId)
-                || isBlank(templateId)) {
-
+    public EmailTemplate getTemplate(AppDefinition appDef, String formId, String templateId) {
+        if (templateId == null || templateId.trim().isEmpty()) {
             return null;
         }
-
         try {
-
-            String tableName =
-                    resolveTableName(appDef, formId);
-
-            if (tableName == null) {
-                return null;
-            }
-
-            FormRow row =
-                    getFormDataDao().load(
-                            formId,
-                            tableName,
-                            templateId
-                    );
-
+            FormRow row = getFormDataDao().load(FORM_ID, TABLE_NAME, templateId);
             if (row == null) {
                 return null;
             }
-
             return mapTemplate(row);
-
         } catch (Exception e) {
-
-            LogUtil.error(
-                    getClass().getName(),
-                    e,
-                    "Failed to load email template"
-            );
-
+            LogUtil.error(getClass().getName(), e, "Failed to load email template");
             return null;
         }
     }
 
     @Override
-    public Collection<EmailTemplate> getTemplates(
-            AppDefinition appDef,
-            String formId) {
+    public Collection<EmailTemplate> getTemplates(AppDefinition appDef, String formId) {
+        return getAllTemplateOptions(appDef);
+    }
 
-        Collection<EmailTemplate> templates =
-                new ArrayList<EmailTemplate>();
-
-        if (appDef == null || isBlank(formId)) {
-            return templates;
-        }
-
+    @Override
+    public Collection<EmailTemplate> getAllTemplateOptions(AppDefinition appDef) {
+        Collection<EmailTemplate> templates = new ArrayList<EmailTemplate>();
         try {
-
-            String tableName =
-                    resolveTableName(appDef, formId);
-
-            if (tableName == null) {
-                return templates;
-            }
-
-            FormRowSet rows =
-                    getFormDataDao().find(
-                            formId,
-                            tableName,
-                            null,
-                            null,
-                            null,
-                            false,
-                            null,
-                            null
-                    );
-
+            FormRowSet rows = getFormDataDao().find(FORM_ID, TABLE_NAME, null, null, null, false, null, null);
             if (rows == null) {
                 return templates;
             }
-
             for (FormRow row : rows) {
                 EmailTemplate t = mapTemplate(row);
                 if (t != null) {
                     templates.add(t);
                 }
             }
-
         } catch (Exception e) {
-
-            LogUtil.error(
-                    getClass().getName(),
-                    e,
-                    "Failed to load email templates"
-            );
+            LogUtil.error(getClass().getName(), e, "Failed to load email templates");
         }
-
         return templates;
     }
 
     private EmailTemplate mapTemplate(FormRow row) {
-
+        String templateNameValue = null;
         String subjectValue = null;
         String bodyValue = null;
-
         for (String key : row.stringPropertyNames()) {
             if (SKIP_FIELDS.contains(key)) {
                 continue;
@@ -141,70 +80,22 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             }
             if (value.contains("<")) {
                 bodyValue = value;
-            } else if (subjectValue == null
-                    || value.length() < subjectValue.length()) {
+            } else if (subjectValue == null || value.length() < subjectValue.length()) {
                 subjectValue = value;
             }
         }
-
-        if (isBlank(subjectValue) && isBlank(bodyValue)) {
+        templateNameValue = subjectValue;
+        if (isBlank(templateNameValue) && isBlank(subjectValue) && isBlank(bodyValue)) {
             return null;
         }
-
-        EmailTemplate template =
-                new EmailTemplate();
-
-        template.setId(row.getId());
-        template.setTemplateName(subjectValue);
-        template.setSubject(subjectValue);
-        template.setBody(bodyValue);
-
-        return template;
-    }
-
-    private String resolveTableName(
-            AppDefinition appDef,
-            String formId) {
-
-        FormDefinitionDao dao =
-                getFormDefinitionDao();
-
-        FormDefinition form =
-                dao.loadById(
-                        formId,
-                        appDef
-                );
-
-        if (form == null) {
-
-            LogUtil.warn(
-                    getClass().getName(),
-                    "Template form not found: " + formId
-            );
-
-            return null;
-        }
-
-        return form.getTableName();
+        return new EmailTemplate(row.getId(), templateNameValue, subjectValue, bodyValue);
     }
 
     private FormDataDao getFormDataDao() {
-
-        return (FormDataDao) AppUtil
-                .getApplicationContext()
-                .getBean("formDataDao");
+        return (FormDataDao) AppUtil.getApplicationContext().getBean("formDataDao");
     }
 
-    private FormDefinitionDao getFormDefinitionDao() {
-
-        return (FormDefinitionDao) AppUtil
-                .getApplicationContext()
-                .getBean("formDefinitionDao");
-    }
-
-    private boolean isBlank(String value) {
-
-        return value == null
-                || value.trim().isEmpty();
+    static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

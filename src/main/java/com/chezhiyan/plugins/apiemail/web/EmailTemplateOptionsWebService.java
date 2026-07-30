@@ -38,19 +38,16 @@ public class EmailTemplateOptionsWebService {
 
             } else if (ApiEmailToolConstants.ACTION_LIST_TEMPLATES.equals(action)) {
 
-                String formId = request.getParameter(
-                        ApiEmailToolConstants.PARAM_TEMPLATE_FORM);
-
-                result = listTemplates(
-                        appDef,
-                        formId,
-                        templateService
-                );
+                result = listAllTemplates(appDef, templateService);
 
             } else if (ApiEmailToolConstants.ACTION_LIST_FIELDS.equals(action)) {
 
                 String formDefId = request.getParameter(
                         ApiEmailToolConstants.PARAM_ATTACHMENTS_FORM);
+                if (formDefId == null || formDefId.trim().isEmpty()) {
+                    formDefId = request.getParameter(
+                            ApiEmailToolConstants.PARAM_TEMPLATE_FORM);
+                }
 
                 result = listFields(appDef, formDefId);
             }
@@ -103,43 +100,18 @@ public class EmailTemplateOptionsWebService {
         return result;
     }
 
-    private JSONArray listTemplates(
-            AppDefinition appDef,
-            String formId,
-            EmailTemplateService templateService) {
-
+    private JSONArray listAllTemplates(AppDefinition appDef, EmailTemplateService templateService) {
         JSONArray result = new JSONArray();
-
-        if (appDef == null
-                || formId == null
-                || formId.trim().isEmpty()) {
-
+        if (appDef == null) {
             return result;
         }
-
-        Collection<EmailTemplate> templates =
-                templateService.getTemplates(
-                        appDef,
-                        formId
-                );
-
-        for (EmailTemplate template : templates) {
-
+        Collection<EmailTemplate> options = templateService.getAllTemplateOptions(appDef);
+        for (EmailTemplate opt : options) {
             JSONObject option = new JSONObject();
-
-            option.put(
-                    "value",
-                    template.getId()
-            );
-
-            option.put(
-                    "label",
-                    template.getTemplateName()
-            );
-
+            option.put("value", opt.getId());
+            option.put("label", opt.getTemplateName());
             result.put(option);
         }
-
         return result;
     }
 

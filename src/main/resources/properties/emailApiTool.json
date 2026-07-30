@@ -31,19 +31,10 @@
     "title": "Email Template",
     "properties": [
       {
-        "name": "templateForm",
-        "label": "Template Form",
-        "type": "selectbox",
-        "required": "true",
-        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=forms",
-        "description": "Select the form that stores email templates."
-      },
-      {
         "name": "template",
         "label": "Template",
         "type": "selectbox",
         "required": "true",
-        "options_ajax_on_change": "templateForm",
         "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=templates",
         "description": "Select an email template."
       },
@@ -108,53 +99,6 @@
           { "key": "fileName", "label": "FILE NAME" },
           { "key": "embed", "label": "EMBED?", "type": "truefalse" }
         ]
-      }
-    ]
-  },
-  {
-    "title": "SMTP Settings",
-    "properties": [
-      {
-        "name": "smtpHost",
-        "label": "SMTP Host",
-        "type": "textfield",
-        "required": "true"
-      },
-      {
-        "name": "smtpPort",
-        "label": "SMTP Port",
-        "type": "textfield",
-        "value": "587"
-      },
-      {
-        "name": "smtpUsername",
-        "label": "SMTP Username",
-        "type": "textfield"
-      },
-      {
-        "name": "smtpPassword",
-        "label": "SMTP Password",
-        "type": "password"
-      },
-      {
-        "name": "security",
-        "label": "Security",
-        "type": "selectbox",
-        "options": [
-          {
-            "value": "",
-            "label": "None"
-          },
-          {
-            "value": "TLS",
-            "label": "TLS"
-          },
-          {
-            "value": "SSL",
-            "label": "SSL"
-          }
-        ],
-        "value": "TLS"
       }
     ]
   },
