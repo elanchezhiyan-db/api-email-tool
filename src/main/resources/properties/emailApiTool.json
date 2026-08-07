@@ -3,12 +3,6 @@
     "title": "Recipients",
     "properties": [
       {
-        "name": "from",
-        "label": "From",
-        "type": "textfield",
-        "description": "Sender address. Supports hash variables."
-      },
-      {
         "name": "to",
         "label": "To",
         "type": "textfield",
@@ -107,16 +101,16 @@
     "properties": [
       {
         "name": "apiUrl",
-        "label": "API URL",
+        "label": "API URL (no attachments)",
         "type": "textfield",
         "required": "true",
-        "description": "The API endpoint URL to send email requests to. Supports hash variables."
+        "description": "API endpoint for emails WITHOUT attachments. Supports hash variables, e.g. #appVariable.sendEmailURL#."
       },
       {
-        "name": "apiKey",
-        "label": "API Key",
-        "type": "password",
-        "description": "API key for authentication. Sent as Bearer token in Authorization header. Supports hash variables."
+        "name": "apiUrlWithAttachments",
+        "label": "API URL (with attachments)",
+        "type": "textfield",
+        "description": "API endpoint for emails WITH attachments. Used automatically when attachments are present. Supports hash variables, e.g. #appVariable.sendEmailUrlFormData#."
       }
     ]
   }

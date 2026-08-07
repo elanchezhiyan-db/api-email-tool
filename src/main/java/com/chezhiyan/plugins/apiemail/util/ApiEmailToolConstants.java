@@ -6,13 +6,12 @@ public final class ApiEmailToolConstants {
     }
 
     // Plugin properties
-    public static final String PROP_FROM = "from";
     public static final String PROP_TO = "to";
     public static final String PROP_CC = "cc";
     public static final String PROP_BCC = "bcc";
 
     public static final String PROP_API_URL = "apiUrl";
-    public static final String PROP_API_KEY = "apiKey";
+    public static final String PROP_API_URL_WITH_ATTACHMENTS = "apiUrlWithAttachments";
 
     public static final String PROP_TEMPLATE_FORM = "templateForm";
     public static final String PROP_TEMPLATE = "template";
