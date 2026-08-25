@@ -71,13 +71,13 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
         AppDefinition appDef = (AppDefinition) properties.get("appDef");
 
         try {
-            String from = (String) properties.get(ApiEmailToolConstants.PROP_FROM);
             String to = (String) properties.get(ApiEmailToolConstants.PROP_TO);
             String cc = (String) properties.get(ApiEmailToolConstants.PROP_CC);
             String bcc = (String) properties.get(ApiEmailToolConstants.PROP_BCC);
 
             String apiUrl = (String) properties.get(ApiEmailToolConstants.PROP_API_URL);
-            String apiKey = (String) properties.get(ApiEmailToolConstants.PROP_API_KEY);
+            String apiUrlWithAttachments =
+                    (String) properties.get(ApiEmailToolConstants.PROP_API_URL_WITH_ATTACHMENTS);
 
             String templateId = (String) properties.get(ApiEmailToolConstants.PROP_TEMPLATE);
             if (isBlank(templateId)) {
@@ -120,20 +120,20 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 }
             }
 
-            from = AppUtil.processHashVariable(from, assignment, null, null, appDef);
             to = AppUtil.processHashVariable(to, assignment, null, null, appDef);
             cc = AppUtil.processHashVariable(cc, assignment, null, null, appDef);
             bcc = AppUtil.processHashVariable(bcc, assignment, null, null, appDef);
             apiUrl = AppUtil.processHashVariable(apiUrl, assignment, null, null, appDef);
-            apiKey = AppUtil.processHashVariable(apiKey, assignment, null, null, appDef);
+            apiUrlWithAttachments =
+                    AppUtil.processHashVariable(apiUrlWithAttachments, assignment, null, null, appDef);
 
             String resolvedAttachmentsJson = resolveAttachments(
                     properties, appDef, assignment);
 
             apiEmailSenderService.send(
                     assignment, appDef,
-                    apiUrl, apiKey,
-                    from, to, cc, bcc, subject, body,
+                    apiUrl, apiUrlWithAttachments,
+                    to, cc, bcc, subject, body,
                     resolvedAttachmentsJson
             );
 

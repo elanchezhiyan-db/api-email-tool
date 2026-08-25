@@ -1,11 +1,14 @@
 package com.chezhiyan.plugins.apiemail.service;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -21,13 +24,16 @@ import org.json.JSONObject;
 
 public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
 
+    private static final String[] SUPPORTED_EXTENSIONS = {
+        ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"
+    };
+
     @Override
     public void send(
             final WorkflowAssignment assignment,
             final AppDefinition appDef,
             final String apiUrl,
-            final String apiKey,
-            final String from,
+            final String apiUrlWithAttachments,
             final String to,
             final String cc,
             final String bcc,
@@ -52,44 +58,51 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             }
 
             JSONObject payload = new JSONObject();
-            payload.put("from", from != null ? from : "");
-            payload.put("to", collectionToArray(toList));
+            payload.put("recipients", collectionToArray(toList));
             if (ccList != null && !ccList.isEmpty()) {
                 payload.put("cc", collectionToArray(ccList));
+            } else {
+                payload.put("cc", new JSONArray());
             }
             if (bccList != null && !bccList.isEmpty()) {
                 payload.put("bcc", collectionToArray(bccList));
+            } else {
+                payload.put("bcc", new JSONArray());
             }
             payload.put("subject", subject != null ? subject : "");
-            payload.put("body", body != null ? body : "");
+            payload.put("content", body != null ? body : "");
 
-            if (resolvedAttachmentsJson != null && !resolvedAttachmentsJson.trim().isEmpty()) {
-                JSONArray attachments = new JSONArray(resolvedAttachmentsJson);
-                JSONArray attachmentList = new JSONArray();
-                for (int i = 0; i < attachments.length(); i++) {
-                    JSONObject att = attachments.getJSONObject(i);
-                    JSONObject attPayload = new JSONObject();
-                    attPayload.put("path", att.optString("path", ""));
-                    attPayload.put("name", att.optString("name", ""));
-                    attPayload.put("type", att.optString("type", "System Path"));
-                    attPayload.put("embed", att.optBoolean("embed", false));
-                    attachmentList.put(attPayload);
-                }
-                payload.put("attachments", attachmentList);
+            JSONArray attachmentList = buildAttachmentList(resolvedAttachmentsJson);
+            payload.put("attachments", attachmentList);
+
+            String targetUrl = apiUrl;
+            if (attachmentList.length() > 0) {
+                targetUrl = (apiUrlWithAttachments != null && !apiUrlWithAttachments.trim().isEmpty())
+                        ? apiUrlWithAttachments : apiUrl;
             }
 
             final String requestBody = payload.toString();
+            final String finalUrl = targetUrl;
             final String toLog = joinAddresses(toList);
+
+            if (finalUrl == null || finalUrl.trim().isEmpty()) {
+                LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
+                        "API Email Tool: API URL is blank, skipping send"
+                        + " attachments=" + attachmentList.length()
+                        + " to=" + toLog + " subject=" + subject);
+                return;
+            }
 
             Thread apiThread = new PluginThread(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
-                                "API Email Tool: sending to API, url=" + apiUrl
+                                "API Email Tool: sending to API, url=" + finalUrl
+                                + " attachments=" + attachmentList.length()
                                 + " to=" + toLog + " subject=" + subject);
 
-                        int responseCode = postToApi(apiUrl, apiKey, requestBody);
+                        int responseCode = postToApi(finalUrl, requestBody);
 
                         if (responseCode >= 200 && responseCode < 300) {
                             LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
@@ -114,16 +127,71 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
         }
     }
 
-    private int postToApi(String apiUrl, String apiKey, String jsonBody) throws Exception {
+    private JSONArray buildAttachmentList(String resolvedAttachmentsJson) {
+        JSONArray result = new JSONArray();
+        if (resolvedAttachmentsJson == null || resolvedAttachmentsJson.trim().isEmpty()) {
+            return result;
+        }
+        try {
+            JSONArray attachments = new JSONArray(resolvedAttachmentsJson);
+            for (int i = 0; i < attachments.length(); i++) {
+                JSONObject att = attachments.getJSONObject(i);
+                String path = att.optString("path", "");
+                String name = att.optString("name", "");
+                if (isBlank(path)) {
+                    LogUtil.warn(getClass().getName(),
+                            "API Email Tool: skipped attachment with empty path");
+                    continue;
+                }
+                if (isBlank(name)) {
+                    name = new File(path).getName();
+                }
+                if (!isSupportedFileType(name)) {
+                    LogUtil.warn(getClass().getName(),
+                            "API Email Tool: skipped unsupported file type: " + name);
+                    continue;
+                }
+                File file = new File(path);
+                if (!file.exists() || !file.isFile()) {
+                    LogUtil.warn(getClass().getName(),
+                            "API Email Tool: attachment file not found: " + path);
+                    continue;
+                }
+                byte[] fileBytes = Files.readAllBytes(file.toPath());
+                String fileBase64 = Base64.getEncoder().encodeToString(fileBytes);
+
+                JSONObject attachment = new JSONObject();
+                attachment.put("name", name);
+                attachment.put("bytes", fileBase64);
+                result.put(attachment);
+            }
+        } catch (Exception e) {
+            LogUtil.error(getClass().getName(), e,
+                    "API Email Tool: failed to build attachment payload");
+        }
+        return result;
+    }
+
+    private boolean isSupportedFileType(String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        String lower = fileName.toLowerCase();
+        for (String ext : SUPPORTED_EXTENSIONS) {
+            if (lower.endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int postToApi(String apiUrl, String jsonBody) throws Exception {
         URL url = new URL(apiUrl);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         try {
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setRequestProperty("Accept", "application/json");
-            if (apiKey != null && !apiKey.trim().isEmpty()) {
-                conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-            }
             conn.setDoOutput(true);
             conn.setConnectTimeout(10000);
             conn.setReadTimeout(30000);
@@ -133,7 +201,20 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
                 os.write(input, 0, input.length);
             }
 
-            return conn.getResponseCode();
+            int responseCode = conn.getResponseCode();
+            if (responseCode >= 400) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(conn.getErrorStream(), "UTF-8"))) {
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    LogUtil.error(getClass().getName(), null,
+                            "API Email Tool: API error body: " + sb.toString());
+                }
+            }
+            return responseCode;
         } finally {
             conn.disconnect();
         }
@@ -157,5 +238,9 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             }
         }
         return sb.toString();
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().length() == 0;
     }
 }
