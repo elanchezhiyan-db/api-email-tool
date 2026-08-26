@@ -103,8 +103,7 @@
         "name": "apiUrl",
         "label": "API URL (no attachments)",
         "type": "textfield",
-        "required": "true",
-        "description": "API endpoint for emails WITHOUT attachments. Supports hash variables, e.g. #appVariable.sendEmailURL#."
+        "description": "API endpoint for emails WITHOUT attachments. Supports hash variables, e.g. #appVariable.sendEmailURL#. Leave blank to disable sending."
       },
       {
         "name": "apiUrlWithAttachments",

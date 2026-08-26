@@ -85,6 +85,14 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             final String finalUrl = targetUrl;
             final String toLog = joinAddresses(toList);
 
+            if (finalUrl == null || finalUrl.trim().isEmpty()) {
+                LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
+                        "API Email Tool: API URL is blank, skipping send"
+                        + " attachments=" + attachmentList.length()
+                        + " to=" + toLog + " subject=" + subject);
+                return;
+            }
+
             Thread apiThread = new PluginThread(new Runnable() {
                 @Override
                 public void run() {
