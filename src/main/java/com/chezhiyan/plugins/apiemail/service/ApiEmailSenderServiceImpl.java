@@ -97,19 +97,54 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
                 @Override
                 public void run() {
                     try {
-                        LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
-                                "API Email Tool: sending to API, url=" + finalUrl
-                                + " attachments=" + attachmentList.length()
-                                + " to=" + toLog + " subject=" + subject);
+                        int maxAttempts = 3;
+                        int attempt = 0;
+                        int responseCode = -1;
+                        Exception lastException = null;
 
-                        int responseCode = postToApi(finalUrl, requestBody);
+                        while (attempt < maxAttempts) {
+                            attempt++;
+                            try {
+                                LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
+                                        "API Email Tool: sending to API (attempt " + attempt + "/" + maxAttempts + "), url=" + finalUrl
+                                        + " attachments=" + attachmentList.length()
+                                        + " to=" + toLog + " subject=" + subject);
 
-                        if (responseCode >= 200 && responseCode < 300) {
-                            LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
-                                    "API Email Tool: API responded with " + responseCode);
-                        } else {
-                            LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
-                                    null, "API Email Tool: API returned " + responseCode);
+                                responseCode = postToApi(finalUrl, requestBody);
+
+                                if (responseCode >= 200 && responseCode < 300) {
+                                    LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
+                                            "API Email Tool: API responded with " + responseCode + " on attempt " + attempt);
+                                    break;
+                                } else {
+                                    LogUtil.warn(ApiEmailSenderServiceImpl.class.getName(),
+                                            "API Email Tool: API returned " + responseCode + " on attempt " + attempt);
+                                    lastException = new Exception("API returned " + responseCode);
+                                }
+                            } catch (Exception e) {
+                                lastException = e;
+                                LogUtil.warn(ApiEmailSenderServiceImpl.class.getName(),
+                                        "API Email Tool: attempt " + attempt + " failed: " + e.getMessage());
+                            }
+
+                            if (attempt < maxAttempts) {
+                                try {
+                                    Thread.sleep(1000 * attempt);
+                                } catch (InterruptedException ie) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (responseCode < 200 || responseCode >= 300) {
+                            if (lastException != null) {
+                                LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
+                                        lastException, "API Email Tool: failed after " + maxAttempts + " attempts");
+                            } else {
+                                LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
+                                        null, "API Email Tool: API returned " + responseCode + " after " + maxAttempts + " attempts");
+                            }
                         }
                     } catch (Exception e) {
                         LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
