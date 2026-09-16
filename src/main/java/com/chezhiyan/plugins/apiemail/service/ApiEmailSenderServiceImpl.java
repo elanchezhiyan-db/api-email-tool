@@ -8,8 +8,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Iterator;
 
 import org.joget.apps.app.model.AppDefinition;
@@ -22,11 +24,19 @@ import org.joget.workflow.model.WorkflowAssignment;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.chezhiyan.plugins.apiemail.model.EmailAuditLog;
+
 public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
 
     private static final String[] SUPPORTED_EXTENSIONS = {
         ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"
     };
+
+    private static final String MODE_MANUAL = "manual";
+    private static final String STATUS_SUCCESS = "SUCCESS";
+    private static final String STATUS_FAILURE = "FAILURE";
+
+    private EmailAuditLogService auditLogService = new EmailAuditLogServiceImpl();
 
     @Override
     public void send(
@@ -39,7 +49,10 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             final String bcc,
             final String subject,
             final String body,
-            final String resolvedAttachmentsJson) {
+            final String resolvedAttachmentsJson,
+            final String triggeredBy,
+            final String templateName,
+            final String mode) {
 
         try {
             Collection<String> toList = AppUtil.getEmailList(null, to, assignment, appDef);
@@ -84,6 +97,11 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             final String requestBody = payload.toString();
             final String finalUrl = targetUrl;
             final String toLog = joinAddresses(toList);
+            final String ccLog = joinAddresses(ccList);
+            final String bccLog = joinAddresses(bccList);
+            final String auditTriggeredBy = triggeredBy != null ? triggeredBy : "";
+            final String auditTemplateName = templateName != null ? templateName : "";
+            final String auditMode = mode != null ? mode : MODE_MANUAL;
 
             if (finalUrl == null || finalUrl.trim().isEmpty()) {
                 LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
@@ -100,7 +118,8 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
                         int maxAttempts = 3;
                         int attempt = 0;
                         int responseCode = -1;
-                        Exception lastException = null;
+                        String errorMessage = null;
+                        boolean success = false;
 
                         while (attempt < maxAttempts) {
                             attempt++;
@@ -115,16 +134,17 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
                                 if (responseCode >= 200 && responseCode < 300) {
                                     LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),
                                             "API Email Tool: API responded with " + responseCode + " on attempt " + attempt);
+                                    success = true;
                                     break;
                                 } else {
                                     LogUtil.warn(ApiEmailSenderServiceImpl.class.getName(),
                                             "API Email Tool: API returned " + responseCode + " on attempt " + attempt);
-                                    lastException = new Exception("API returned " + responseCode);
+                                    errorMessage = "API returned " + responseCode;
                                 }
                             } catch (Exception e) {
-                                lastException = e;
+                                errorMessage = e.getMessage() != null ? e.getMessage() : e.toString();
                                 LogUtil.warn(ApiEmailSenderServiceImpl.class.getName(),
-                                        "API Email Tool: attempt " + attempt + " failed: " + e.getMessage());
+                                        "API Email Tool: attempt " + attempt + " failed: " + errorMessage);
                             }
 
                             if (attempt < maxAttempts) {
@@ -137,14 +157,23 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
                             }
                         }
 
-                        if (responseCode < 200 || responseCode >= 300) {
-                            if (lastException != null) {
-                                LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
-                                        lastException, "API Email Tool: failed after " + maxAttempts + " attempts");
-                            } else {
-                                LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
-                                        null, "API Email Tool: API returned " + responseCode + " after " + maxAttempts + " attempts");
-                            }
+                        saveAuditLog(
+                                auditTriggeredBy,
+                                auditTemplateName,
+                                auditMode,
+                                toLog,
+                                ccLog,
+                                bccLog,
+                                attempt,
+                                responseCode,
+                                success ? STATUS_SUCCESS : STATUS_FAILURE,
+                                success ? null : errorMessage);
+
+                        if (!success) {
+                            LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
+                                    null, "API Email Tool: failed after " + maxAttempts + " attempts"
+                                    + " responseCode=" + responseCode
+                                    + " error=" + errorMessage);
                         }
                     } catch (Exception e) {
                         LogUtil.error(ApiEmailSenderServiceImpl.class.getName(),
@@ -159,6 +188,39 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             throw e;
         } catch (Exception e) {
             LogUtil.error(getClass().getName(), e, "API Email Tool: failed to prepare API request");
+        }
+    }
+
+    private void saveAuditLog(
+            String sentBy,
+            String templateName,
+            String mode,
+            String to,
+            String cc,
+            String bcc,
+            int attemptNumber,
+            int responseCode,
+            String status,
+            String errorMessage) {
+
+        try {
+            EmailAuditLog auditLog = new EmailAuditLog();
+            auditLog.setSentBy(nvl(sentBy));
+            auditLog.setSentAt(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            auditLog.setMode(nvl(mode));
+            auditLog.setTemplateName(nvl(templateName));
+            auditLog.setRecipientsTo(nvl(to));
+            auditLog.setRecipientsCc(nvl(cc));
+            auditLog.setRecipientsBcc(nvl(bcc));
+            auditLog.setAttemptNumber(String.valueOf(attemptNumber));
+            auditLog.setResponseCode(String.valueOf(responseCode));
+            auditLog.setStatus(nvl(status));
+            auditLog.setErrorMessage(nvl(errorMessage));
+
+            auditLogService.save(auditLog);
+        } catch (Exception e) {
+            LogUtil.error(getClass().getName(), e,
+                    "API Email Tool: failed to prepare audit log");
         }
     }
 
@@ -257,6 +319,9 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
 
     private JSONArray collectionToArray(Collection<String> collection) {
         JSONArray arr = new JSONArray();
+        if (collection == null) {
+            return arr;
+        }
         for (String address : collection) {
             arr.put(StringUtil.encodeEmail(address));
         }
@@ -264,6 +329,9 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
     }
 
     private String joinAddresses(Collection<String> collection) {
+        if (collection == null || collection.isEmpty()) {
+            return "";
+        }
         StringBuilder sb = new StringBuilder();
         Iterator<String> it = collection.iterator();
         while (it.hasNext()) {
@@ -277,5 +345,9 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
 
     private boolean isBlank(String s) {
         return s == null || s.trim().length() == 0;
+    }
+
+    private String nvl(String s) {
+        return s != null ? s : "";
     }
 }

@@ -15,6 +15,9 @@ public interface ApiEmailSenderService {
             String bcc,
             String subject,
             String body,
-            String resolvedAttachmentsJson
+            String resolvedAttachmentsJson,
+            String triggeredBy,
+            String templateName,
+            String mode
     );
 }

@@ -95,6 +95,9 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 LogUtil.warn(getClass().getName(), "API Email Tool: template has empty body");
             }
 
+            String templateName = template.getTemplateName();
+            String triggeredBy = resolveTriggeredBy(assignment);
+
             String subject = AppUtil.processHashVariable(template.getSubject(), assignment, null, null, appDef);
             String body = AppUtil.processHashVariable(template.getBody(), assignment, null, null, appDef);
 
@@ -134,7 +137,10 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     assignment, appDef,
                     apiUrl, apiUrlWithAttachments,
                     to, cc, bcc, subject, body,
-                    resolvedAttachmentsJson
+                    resolvedAttachmentsJson,
+                    triggeredBy,
+                    templateName,
+                    "manual"
             );
 
         } catch (Exception e) {
@@ -142,6 +148,27 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
         }
 
         return null;
+    }
+
+    private String resolveTriggeredBy(WorkflowAssignment assignment) {
+        String user = null;
+        if (assignment != null) {
+            try {
+                user = assignment.getProcessRequesterId();
+            } catch (Exception e) {
+                LogUtil.warn(getClass().getName(),
+                        "API Email Tool: could not resolve process requester: " + e.getMessage());
+            }
+            if (user == null || user.trim().isEmpty()) {
+                try {
+                    user = assignment.getAssigneeId();
+                } catch (Exception e) {
+                    LogUtil.warn(getClass().getName(),
+                            "API Email Tool: could not resolve assignee: " + e.getMessage());
+                }
+            }
+        }
+        return user;
     }
 
     private String resolveAttachments(
