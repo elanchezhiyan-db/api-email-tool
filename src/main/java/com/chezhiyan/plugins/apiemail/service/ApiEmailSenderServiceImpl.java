@@ -25,6 +25,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.chezhiyan.plugins.apiemail.model.EmailAuditLog;
+import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
 
 public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
 
@@ -32,7 +33,6 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
         ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"
     };
 
-    private static final String MODE_MANUAL = "manual";
     private static final String STATUS_SUCCESS = "SUCCESS";
     private static final String STATUS_FAILURE = "FAILURE";
 
@@ -101,7 +101,7 @@ public class ApiEmailSenderServiceImpl implements ApiEmailSenderService {
             final String bccLog = joinAddresses(bccList);
             final String auditTriggeredBy = triggeredBy != null ? triggeredBy : "";
             final String auditTemplateName = templateName != null ? templateName : "";
-            final String auditMode = mode != null ? mode : MODE_MANUAL;
+            final String auditMode = mode != null ? mode : ApiEmailToolConstants.MODE_MANUAL;
 
             if (finalUrl == null || finalUrl.trim().isEmpty()) {
                 LogUtil.info(ApiEmailSenderServiceImpl.class.getName(),

@@ -1,23 +1,57 @@
 [
   {
+    "title": "Mode",
+    "properties": [
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "selectbox",
+        "required": "true",
+        "value": "manual",
+        "options": [
+          { "value": "manual", "label": "Manual" },
+          { "value": "auto", "label": "Auto" }
+        ],
+        "description": "Manual: recipients are defined directly in the Recipients section below. Auto: recipients are taken from a master configuration (functionality under development)."
+      }
+    ]
+  },
+  {
     "title": "Recipients",
+    "control_field": "mode",
+    "control_value": "manual",
     "properties": [
       {
         "name": "to",
         "label": "To",
         "type": "textfield",
         "required": "true",
-        "description": "Comma separated addresses and/or hash variables."
+        "description": "Comma separated addresses and/or hash variables. (Manual mode only)"
       },
       {
         "name": "cc",
         "label": "CC",
-        "type": "textfield"
+        "type": "textfield",
+        "description": "Manual mode only"
       },
       {
         "name": "bcc",
         "label": "BCC",
-        "type": "textfield"
+        "type": "textfield",
+        "description": "Manual mode only"
+      }
+    ]
+  },
+  {
+    "title": "Auto Configuration",
+    "control_field": "mode",
+    "control_value": "auto",
+    "properties": [
+      {
+        "name": "masterConfiguration",
+        "label": "Master Configuration Name",
+        "type": "textfield",
+        "description": "Name of the master configuration that defines the To/CC/BCC recipients for Auto mode. The configuration structure, storage and selection mechanism are still being finalized."
       }
     ]
   },

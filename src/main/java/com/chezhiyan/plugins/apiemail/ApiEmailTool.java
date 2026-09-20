@@ -71,6 +71,20 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
         AppDefinition appDef = (AppDefinition) properties.get("appDef");
 
         try {
+            String mode = (String) properties.get(ApiEmailToolConstants.PROP_MODE);
+            if (isBlank(mode)) {
+                mode = ApiEmailToolConstants.MODE_MANUAL;
+            }
+
+            if (!ApiEmailToolConstants.MODE_MANUAL.equals(mode)) {
+                String masterConfiguration =
+                        (String) properties.get(ApiEmailToolConstants.PROP_MASTER_CONFIGURATION);
+                LogUtil.warn(getClass().getName(),
+                        "API Email Tool: Auto mode is not yet implemented; email send skipped."
+                        + " masterConfiguration=" + masterConfiguration);
+                return null;
+            }
+
             String to = (String) properties.get(ApiEmailToolConstants.PROP_TO);
             String cc = (String) properties.get(ApiEmailToolConstants.PROP_CC);
             String bcc = (String) properties.get(ApiEmailToolConstants.PROP_BCC);
@@ -140,7 +154,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     resolvedAttachmentsJson,
                     triggeredBy,
                     templateName,
-                    "manual"
+                    mode
             );
 
         } catch (Exception e) {

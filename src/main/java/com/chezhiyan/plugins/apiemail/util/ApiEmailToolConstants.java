@@ -6,6 +6,7 @@ public final class ApiEmailToolConstants {
     }
 
     // Plugin properties
+    public static final String PROP_MODE = "mode";
     public static final String PROP_TO = "to";
     public static final String PROP_CC = "cc";
     public static final String PROP_BCC = "bcc";
@@ -19,6 +20,11 @@ public final class ApiEmailToolConstants {
     public static final String PROP_FORM_UPLOAD_FIELDS = "formUploadFields";
     public static final String PROP_FILES = "files";
     public static final String PROP_DYNAMIC_PARAMS = "dynamicParams";
+    public static final String PROP_MASTER_CONFIGURATION = "masterConfiguration";
+
+    // Mode values
+    public static final String MODE_MANUAL = "manual";
+    public static final String MODE_AUTO = "auto";
 
     // Email Template Form — system fields to skip when auto-detecting subject/body
     public static final String[] SYSTEM_FIELDS = {
