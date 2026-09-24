@@ -8,7 +8,7 @@
   <url>http://www.example.com</url>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.release>11</maven.compiler.release>
+    <maven.compiler.release>11</maven.compiler.release> 
     <joget.version>8.0-SNAPSHOT</joget.version>
   </properties>
   <repositories>
@@ -40,6 +40,12 @@
           <artifactId>junit</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.joget</groupId>
+      <artifactId>wflow-directory</artifactId>
+      <version>8.0-SNAPSHOT</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.json</groupId>

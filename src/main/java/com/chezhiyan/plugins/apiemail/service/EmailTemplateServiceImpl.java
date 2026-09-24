@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.joget.apps.app.model.AppDefinition;
+import org.joget.apps.app.model.FormDefinition;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.dao.FormDataDao;
 import org.joget.apps.form.model.FormRow;
@@ -30,7 +31,8 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             return null;
         }
         try {
-            FormRow row = getFormDataDao().load(FORM_ID, TABLE_NAME, templateId);
+            String tableName = resolveTableName(appDef, formId, TABLE_NAME);
+            FormRow row = getFormDataDao().load(FORM_ID, tableName, templateId);
             if (row == null) {
                 return null;
             }
@@ -50,7 +52,8 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
     public Collection<EmailTemplate> getAllTemplateOptions(AppDefinition appDef) {
         Collection<EmailTemplate> templates = new ArrayList<EmailTemplate>();
         try {
-            FormRowSet rows = getFormDataDao().find(FORM_ID, TABLE_NAME, null, null, null, false, null, null);
+            String tableName = resolveTableName(appDef, FORM_ID, TABLE_NAME);
+            FormRowSet rows = getFormDataDao().find(FORM_ID, tableName, null, null, null, false, null, null);
             if (rows == null) {
                 return templates;
             }
@@ -93,6 +96,20 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
 
     private FormDataDao getFormDataDao() {
         return (FormDataDao) AppUtil.getApplicationContext().getBean("formDataDao");
+    }
+
+    private String resolveTableName(AppDefinition appDef, String formDefId, String defaultTable) {
+        if (appDef != null && appDef.getFormDefinitionList() != null) {
+            for (FormDefinition formDef : appDef.getFormDefinitionList()) {
+                if (formDefId.equals(formDef.getId())) {
+                    String table = formDef.getTableName();
+                    if (!isBlank(table)) {
+                        return table;
+                    }
+                }
+            }
+        }
+        return defaultTable;
     }
 
     static boolean isBlank(String value) {

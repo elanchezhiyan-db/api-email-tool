@@ -20,7 +20,12 @@ public final class ApiEmailToolConstants {
     public static final String PROP_FORM_UPLOAD_FIELDS = "formUploadFields";
     public static final String PROP_FILES = "files";
     public static final String PROP_DYNAMIC_PARAMS = "dynamicParams";
-    public static final String PROP_MASTER_CONFIGURATION = "masterConfiguration";
+    public static final String PROP_CONFIGURATION_TEMPLATE = "configurationTemplate";
+
+    // Configuration template form fields
+    public static final String CONFIG_FIELD_TO = "to";
+    public static final String CONFIG_FIELD_CC = "cc";
+    public static final String CONFIG_FIELD_BCC = "bcc";
 
     // Mode values
     public static final String MODE_MANUAL = "manual";
@@ -49,4 +54,5 @@ public final class ApiEmailToolConstants {
     public static final String ACTION_LIST_FORMS = "forms";
     public static final String ACTION_LIST_TEMPLATES = "templates";
     public static final String ACTION_LIST_FIELDS = "listFields";
+    public static final String ACTION_LIST_CONFIG_TEMPLATES = "configTemplates";
 }

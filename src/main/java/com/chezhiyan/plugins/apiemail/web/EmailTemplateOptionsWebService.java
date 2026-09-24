@@ -14,7 +14,9 @@ import org.joget.commons.util.LogUtil;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.chezhiyan.plugins.apiemail.model.ConfigurationTemplate;
 import com.chezhiyan.plugins.apiemail.model.EmailTemplate;
+import com.chezhiyan.plugins.apiemail.service.ConfigurationTemplateService;
 import com.chezhiyan.plugins.apiemail.service.EmailTemplateService;
 import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
 
@@ -24,7 +26,8 @@ public class EmailTemplateOptionsWebService {
             HttpServletRequest request,
             HttpServletResponse response,
             AppDefinition appDef,
-            EmailTemplateService templateService) throws IOException {
+            EmailTemplateService templateService,
+            ConfigurationTemplateService configurationTemplateService) throws IOException {
 
         String action = request.getParameter(
                 ApiEmailToolConstants.PARAM_ACTION);
@@ -39,6 +42,10 @@ public class EmailTemplateOptionsWebService {
             } else if (ApiEmailToolConstants.ACTION_LIST_TEMPLATES.equals(action)) {
 
                 result = listAllTemplates(appDef, templateService);
+
+            } else if (ApiEmailToolConstants.ACTION_LIST_CONFIG_TEMPLATES.equals(action)) {
+
+                result = listAllConfigurationTemplates(appDef, configurationTemplateService);
 
             } else if (ApiEmailToolConstants.ACTION_LIST_FIELDS.equals(action)) {
 
@@ -110,6 +117,33 @@ public class EmailTemplateOptionsWebService {
             JSONObject option = new JSONObject();
             option.put("value", opt.getId());
             option.put("label", opt.getTemplateName());
+            result.put(option);
+        }
+        return result;
+    }
+
+    private JSONArray listAllConfigurationTemplates(
+            AppDefinition appDef,
+            ConfigurationTemplateService configurationTemplateService) {
+
+        JSONArray result = new JSONArray();
+
+        if (appDef == null || configurationTemplateService == null) {
+            return result;
+        }
+
+        JSONObject blank = new JSONObject();
+        blank.put("value", "");
+        blank.put("label", "");
+        result.put(blank);
+
+        Collection<ConfigurationTemplate> options =
+                configurationTemplateService.getAllConfigurationTemplateOptions(appDef);
+
+        for (ConfigurationTemplate opt : options) {
+            JSONObject option = new JSONObject();
+            option.put("value", opt.getId());
+            option.put("label", opt.getConfigurationName());
             result.put(option);
         }
         return result;

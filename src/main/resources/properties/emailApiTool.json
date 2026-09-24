@@ -12,7 +12,7 @@
           { "value": "manual", "label": "Manual" },
           { "value": "auto", "label": "Auto" }
         ],
-        "description": "Manual: recipients are defined directly in the Recipients section below. Auto: recipients are taken from a master configuration (functionality under development)."
+        "description": "Manual: recipients are defined directly in the Recipients section below. Auto: recipients and templates come from the Auto Share Mapping (functionality under development)."
       }
     ]
   },
@@ -48,10 +48,11 @@
     "control_value": "auto",
     "properties": [
       {
-        "name": "masterConfiguration",
-        "label": "Master Configuration Name",
-        "type": "textfield",
-        "description": "Name of the master configuration that defines the To/CC/BCC recipients for Auto mode. The configuration structure, storage and selection mechanism are still being finalized."
+        "name": "configurationTemplate",
+        "label": "Configuration Template",
+        "type": "selectbox",
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=configTemplates",
+        "description": "Configuration template that defines the To/CC/BCC for every participant. It holds participant IDs; each ID's email is resolved by its mapping type (user, group, department, or variable with an email value). All recipients receive the email simultaneously."
       }
     ]
   },
@@ -64,7 +65,7 @@
         "type": "selectbox",
         "required": "true",
         "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=templates",
-        "description": "Select an email template."
+        "description": "Select an email template. Used in both Manual and Auto modes; in Auto mode the same template is shared with every participant."
       },
       {
         "name": "dynamicParams",

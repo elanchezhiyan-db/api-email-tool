@@ -20,17 +20,23 @@ import org.joget.workflow.model.WorkflowAssignment;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.chezhiyan.plugins.apiemail.model.ConfigurationTemplate;
 import com.chezhiyan.plugins.apiemail.model.EmailTemplate;
 import com.chezhiyan.plugins.apiemail.service.ApiEmailSenderService;
 import com.chezhiyan.plugins.apiemail.service.ApiEmailSenderServiceImpl;
+import com.chezhiyan.plugins.apiemail.service.ConfigurationTemplateService;
+import com.chezhiyan.plugins.apiemail.service.ConfigurationTemplateServiceImpl;
 import com.chezhiyan.plugins.apiemail.service.EmailTemplateService;
 import com.chezhiyan.plugins.apiemail.service.EmailTemplateServiceImpl;
 import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
+import com.chezhiyan.plugins.apiemail.util.ParticipantEmailResolver;
 import com.chezhiyan.plugins.apiemail.web.EmailTemplateOptionsWebService;
 
 public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebSupport {
 
     private final EmailTemplateService templateService = new EmailTemplateServiceImpl();
+    private final ConfigurationTemplateService configurationTemplateService = new ConfigurationTemplateServiceImpl();
+    private final ParticipantEmailResolver participantEmailResolver = new ParticipantEmailResolver();
     private final ApiEmailSenderService apiEmailSenderService = new ApiEmailSenderServiceImpl();
     private final EmailTemplateOptionsWebService optionsWebService = new EmailTemplateOptionsWebService();
 
@@ -76,23 +82,6 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 mode = ApiEmailToolConstants.MODE_MANUAL;
             }
 
-            if (!ApiEmailToolConstants.MODE_MANUAL.equals(mode)) {
-                String masterConfiguration =
-                        (String) properties.get(ApiEmailToolConstants.PROP_MASTER_CONFIGURATION);
-                LogUtil.warn(getClass().getName(),
-                        "API Email Tool: Auto mode is not yet implemented; email send skipped."
-                        + " masterConfiguration=" + masterConfiguration);
-                return null;
-            }
-
-            String to = (String) properties.get(ApiEmailToolConstants.PROP_TO);
-            String cc = (String) properties.get(ApiEmailToolConstants.PROP_CC);
-            String bcc = (String) properties.get(ApiEmailToolConstants.PROP_BCC);
-
-            String apiUrl = (String) properties.get(ApiEmailToolConstants.PROP_API_URL);
-            String apiUrlWithAttachments =
-                    (String) properties.get(ApiEmailToolConstants.PROP_API_URL_WITH_ATTACHMENTS);
-
             String templateId = (String) properties.get(ApiEmailToolConstants.PROP_TEMPLATE);
             if (isBlank(templateId)) {
                 throw new PluginException("API Email Tool: no template selected");
@@ -135,6 +124,40 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     LogUtil.info(getClass().getName(),
                             "API Email Tool: dynamic parameter replaced " + key + " = " + value);
                 }
+            }
+
+            String to;
+            String cc;
+            String bcc;
+
+            String apiUrl = (String) properties.get(ApiEmailToolConstants.PROP_API_URL);
+            String apiUrlWithAttachments =
+                    (String) properties.get(ApiEmailToolConstants.PROP_API_URL_WITH_ATTACHMENTS);
+
+            if (ApiEmailToolConstants.MODE_MANUAL.equals(mode)) {
+                to = (String) properties.get(ApiEmailToolConstants.PROP_TO);
+                cc = (String) properties.get(ApiEmailToolConstants.PROP_CC);
+                bcc = (String) properties.get(ApiEmailToolConstants.PROP_BCC);
+            } else {
+                String configurationTemplateId =
+                        (String) properties.get(ApiEmailToolConstants.PROP_CONFIGURATION_TEMPLATE);
+                if (isBlank(configurationTemplateId)) {
+                    throw new PluginException("API Email Tool: no configuration template selected");
+                }
+
+                ConfigurationTemplate configurationTemplate =
+                        configurationTemplateService.getConfiguration(appDef, configurationTemplateId);
+                if (configurationTemplate == null) {
+                    throw new PluginException("API Email Tool: configuration template not found in form");
+                }
+
+                to = participantEmailResolver.resolve(configurationTemplate.getTo(), assignment, appDef);
+                cc = participantEmailResolver.resolve(configurationTemplate.getCc(), assignment, appDef);
+                bcc = participantEmailResolver.resolve(configurationTemplate.getBcc(), assignment, appDef);
+
+                LogUtil.info(getClass().getName(),
+                        "API Email Tool: auto recipients resolved, to=" + to
+                        + " cc=" + cc + " bcc=" + bcc);
             }
 
             to = AppUtil.processHashVariable(to, assignment, null, null, appDef);
@@ -367,7 +390,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
         if (appDef == null) {
             appDef = resolveAppFromRequest(request);
         }
-        optionsWebService.service(request, response, appDef, templateService);
+        optionsWebService.service(request, response, appDef, templateService, configurationTemplateService);
     }
 
     private AppDefinition resolveAppFromRequest(HttpServletRequest request) {
