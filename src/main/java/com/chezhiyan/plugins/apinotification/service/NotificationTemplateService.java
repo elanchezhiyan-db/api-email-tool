@@ -1,16 +1,16 @@
-package com.chezhiyan.plugins.apiemail.service;
+package com.chezhiyan.plugins.apinotification.service;
 
 import java.util.Collection;
 
 import org.joget.apps.app.model.AppDefinition;
 
-import com.chezhiyan.plugins.apiemail.model.EmailTemplate;
+import com.chezhiyan.plugins.apinotification.model.NotificationTemplate;
 
-public interface EmailTemplateService {
+public interface NotificationTemplateService {
 
-    EmailTemplate getTemplate(AppDefinition appDef, String formId, String templateId);
+    NotificationTemplate getTemplate(AppDefinition appDef, String formId, String templateId);
 
-    Collection<EmailTemplate> getTemplates(AppDefinition appDef, String formId);
+    Collection<NotificationTemplate> getTemplates(AppDefinition appDef, String formId);
 
-    Collection<EmailTemplate> getAllTemplateOptions(AppDefinition appDef);
+    Collection<NotificationTemplate> getAllTemplateOptions(AppDefinition appDef);
 }

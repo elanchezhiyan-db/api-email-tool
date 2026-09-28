@@ -1,4 +1,4 @@
-package com.chezhiyan.plugins.apiemail.web;
+package com.chezhiyan.plugins.apinotification.web;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -14,46 +14,45 @@ import org.joget.commons.util.LogUtil;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.chezhiyan.plugins.apiemail.model.ConfigurationTemplate;
-import com.chezhiyan.plugins.apiemail.model.EmailTemplate;
-import com.chezhiyan.plugins.apiemail.service.ConfigurationTemplateService;
-import com.chezhiyan.plugins.apiemail.service.EmailTemplateService;
-import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
+import com.chezhiyan.plugins.apinotification.model.NotificationTemplate;
+import com.chezhiyan.plugins.apinotification.model.SmsTemplate;
+import com.chezhiyan.plugins.apinotification.service.NotificationTemplateService;
+import com.chezhiyan.plugins.apinotification.service.SmsTemplateService;
+import com.chezhiyan.plugins.apinotification.util.CpaNotificationConstants;
 
-public class EmailTemplateOptionsWebService {
+public class NotificationOptionsWebService {
 
     public void service(
             HttpServletRequest request,
             HttpServletResponse response,
             AppDefinition appDef,
-            EmailTemplateService templateService,
-            ConfigurationTemplateService configurationTemplateService) throws IOException {
+            NotificationTemplateService templateService,
+            SmsTemplateService smsTemplateService) throws IOException {
 
-        String action = request.getParameter(
-                ApiEmailToolConstants.PARAM_ACTION);
+        String action = request.getParameter(CpaNotificationConstants.PARAM_ACTION);
 
         JSONArray result = new JSONArray();
 
         try {
-            if (ApiEmailToolConstants.ACTION_LIST_FORMS.equals(action)) {
+            if (CpaNotificationConstants.ACTION_LIST_FORMS.equals(action)) {
 
                 result = listForms(appDef);
 
-            } else if (ApiEmailToolConstants.ACTION_LIST_TEMPLATES.equals(action)) {
+            } else if (CpaNotificationConstants.ACTION_LIST_TEMPLATES.equals(action)) {
 
                 result = listAllTemplates(appDef, templateService);
 
-            } else if (ApiEmailToolConstants.ACTION_LIST_CONFIG_TEMPLATES.equals(action)) {
+            } else if (CpaNotificationConstants.ACTION_LIST_SMS_TEMPLATES.equals(action)) {
 
-                result = listAllConfigurationTemplates(appDef, configurationTemplateService);
+                result = listAllSmsTemplates(appDef, smsTemplateService);
 
-            } else if (ApiEmailToolConstants.ACTION_LIST_FIELDS.equals(action)) {
+            } else if (CpaNotificationConstants.ACTION_LIST_FIELDS.equals(action)) {
 
                 String formDefId = request.getParameter(
-                        ApiEmailToolConstants.PARAM_ATTACHMENTS_FORM);
+                        CpaNotificationConstants.PARAM_ATTACHMENTS_FORM);
                 if (formDefId == null || formDefId.trim().isEmpty()) {
                     formDefId = request.getParameter(
-                            ApiEmailToolConstants.PARAM_TEMPLATE_FORM);
+                            CpaNotificationConstants.PARAM_TEMPLATE_FORM);
                 }
 
                 result = listFields(appDef, formDefId);
@@ -64,7 +63,7 @@ public class EmailTemplateOptionsWebService {
             LogUtil.error(
                     getClass().getName(),
                     e,
-                    "API Email Tool: failed to load AJAX options"
+                    "CPA Notification: failed to load AJAX options"
             );
         }
 
@@ -82,10 +81,7 @@ public class EmailTemplateOptionsWebService {
             return result;
         }
 
-        JSONObject blank = new JSONObject();
-        blank.put("value", "");
-        blank.put("label", "");
-        result.put(blank);
+        result.put(blankOption());
 
         Collection<FormDefinition> forms =
                 appDef.getFormDefinitionList();
@@ -95,56 +91,37 @@ public class EmailTemplateOptionsWebService {
         }
 
         for (FormDefinition form : forms) {
-
-            JSONObject option = new JSONObject();
-
-            option.put("value", form.getId());
-            option.put("label", form.getName());
-
-            result.put(option);
+            result.put(option(form.getId(), form.getName()));
         }
 
         return result;
     }
 
-    private JSONArray listAllTemplates(AppDefinition appDef, EmailTemplateService templateService) {
+    private JSONArray listAllTemplates(AppDefinition appDef, NotificationTemplateService templateService) {
         JSONArray result = new JSONArray();
         if (appDef == null) {
             return result;
         }
-        Collection<EmailTemplate> options = templateService.getAllTemplateOptions(appDef);
-        for (EmailTemplate opt : options) {
-            JSONObject option = new JSONObject();
-            option.put("value", opt.getId());
-            option.put("label", opt.getTemplateName());
-            result.put(option);
+        Collection<NotificationTemplate> options = templateService.getAllTemplateOptions(appDef);
+        for (NotificationTemplate opt : options) {
+            result.put(option(opt.getId(), opt.getTemplateName()));
         }
         return result;
     }
 
-    private JSONArray listAllConfigurationTemplates(
-            AppDefinition appDef,
-            ConfigurationTemplateService configurationTemplateService) {
-
+    /**
+     * SMS templates are selected by name rather than by record id, matching how the
+     * Idelli SMS Tool looked templates up, so the option value is the template name.
+     */
+    private JSONArray listAllSmsTemplates(AppDefinition appDef, SmsTemplateService smsTemplateService) {
         JSONArray result = new JSONArray();
-
-        if (appDef == null || configurationTemplateService == null) {
+        if (appDef == null) {
             return result;
         }
-
-        JSONObject blank = new JSONObject();
-        blank.put("value", "");
-        blank.put("label", "");
-        result.put(blank);
-
-        Collection<ConfigurationTemplate> options =
-                configurationTemplateService.getAllConfigurationTemplateOptions(appDef);
-
-        for (ConfigurationTemplate opt : options) {
-            JSONObject option = new JSONObject();
-            option.put("value", opt.getId());
-            option.put("label", opt.getConfigurationName());
-            result.put(option);
+        result.put(blankOption());
+        Collection<SmsTemplate> options = smsTemplateService.getAllTemplateOptions(appDef);
+        for (SmsTemplate opt : options) {
+            result.put(option(opt.getTemplateName(), opt.getTemplateName()));
         }
         return result;
     }
@@ -162,24 +139,26 @@ public class EmailTemplateOptionsWebService {
             return result;
         }
 
-        JSONObject blank = new JSONObject();
-        blank.put("value", "");
-        blank.put("label", "");
-        result.put(blank);
+        result.put(blankOption());
 
         Collection<Map<String, String>> columns =
                 FormUtil.getFormColumns(appDef, formDefId);
 
         for (Map<String, String> col : columns) {
-
-            JSONObject option = new JSONObject();
-
-            option.put("value", col.get("value"));
-            option.put("label", col.get("label"));
-
-            result.put(option);
+            result.put(option(col.get("value"), col.get("label")));
         }
 
         return result;
+    }
+
+    private JSONObject blankOption() {
+        return option("", "");
+    }
+
+    private JSONObject option(String value, String label) {
+        JSONObject option = new JSONObject();
+        option.put("value", value);
+        option.put("label", label);
+        return option;
     }
 }

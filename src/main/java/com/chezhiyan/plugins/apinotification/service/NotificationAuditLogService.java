@@ -1,8 +1,8 @@
-package com.chezhiyan.plugins.apiemail.service;
+package com.chezhiyan.plugins.apinotification.service;
 
-import com.chezhiyan.plugins.apiemail.model.EmailAuditLog;
+import com.chezhiyan.plugins.apinotification.model.NotificationAuditLog;
 
-public interface EmailAuditLogService {
+public interface NotificationAuditLogService {
 
-    void save(EmailAuditLog auditLog);
+    void save(NotificationAuditLog auditLog);
 }

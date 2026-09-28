@@ -1,71 +1,35 @@
 [
   {
-    "title": "Mode",
+    "title": "Channel",
     "properties": [
       {
-        "name": "mode",
-        "label": "Mode",
+        "name": "channel",
+        "label": "Channel",
         "type": "selectbox",
         "required": "true",
-        "value": "manual",
+        "value": "email",
         "options": [
-          { "value": "manual", "label": "Manual" },
-          { "value": "auto", "label": "Auto" }
+          { "value": "email", "label": "Email" },
+          { "value": "sms", "label": "SMS" },
+          { "value": "both", "label": "Email and SMS" }
         ],
-        "description": "Manual: recipients are defined directly in the Recipients section below. Auto: recipients and templates come from the Auto Share Mapping (functionality under development)."
-      }
-    ]
-  },
-  {
-    "title": "Recipients",
-    "control_field": "mode",
-    "control_value": "manual",
-    "properties": [
-      {
-        "name": "to",
-        "label": "To",
-        "type": "textfield",
-        "required": "true",
-        "description": "Comma separated addresses and/or hash variables. (Manual mode only)"
-      },
-      {
-        "name": "cc",
-        "label": "CC",
-        "type": "textfield",
-        "description": "Manual mode only"
-      },
-      {
-        "name": "bcc",
-        "label": "BCC",
-        "type": "textfield",
-        "description": "Manual mode only"
-      }
-    ]
-  },
-  {
-    "title": "Auto Configuration",
-    "control_field": "mode",
-    "control_value": "auto",
-    "properties": [
-      {
-        "name": "configurationTemplate",
-        "label": "Configuration Template",
-        "type": "selectbox",
-        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=configTemplates",
-        "description": "Configuration template that defines the To/CC/BCC for every participant. It holds participant IDs; each ID's email is resolved by its mapping type (user, group, department, or variable with an email value). All recipients receive the email simultaneously."
+        "description": "Choose which channels to send on. Email: the Email Recipients, Attachments and Email API sections apply. SMS: the SMS Recipients and SMS API sections apply. Email and SMS: both sections apply and each channel is sent on its own API."
       }
     ]
   },
   {
     "title": "Email Template",
+    "control_field": "channel",
+    "control_value": "email|both",
+    "control_use_regex": "true",
     "properties": [
       {
         "name": "template",
         "label": "Template",
         "type": "selectbox",
         "required": "true",
-        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=templates",
-        "description": "Select an email template. Used in both Manual and Auto modes; in Auto mode the same template is shared with every participant."
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apinotification.CpaNotificationPlugin/service?action=templates",
+        "description": "Select an email template. The subject is sent as the email subject and the body as the email content."
       },
       {
         "name": "dynamicParams",
@@ -80,13 +44,42 @@
     ]
   },
   {
-    "title": "Attachments",
+    "title": "Email Recipients",
+    "control_field": "channel",
+    "control_value": "email|both",
+    "control_use_regex": "true",
+    "properties": [
+      {
+        "name": "to",
+        "label": "To",
+        "type": "textfield",
+        "description": "Comma separated addresses and/or hash variables."
+      },
+      {
+        "name": "cc",
+        "label": "CC",
+        "type": "textfield",
+        "description": "Comma separated addresses and/or hash variables."
+      },
+      {
+        "name": "bcc",
+        "label": "BCC",
+        "type": "textfield",
+        "description": "Comma separated addresses and/or hash variables."
+      }
+    ]
+  },
+  {
+    "title": "Email Attachments",
+    "control_field": "channel",
+    "control_value": "email|both",
+    "control_use_regex": "true",
     "properties": [
       {
         "name": "attachmentsForm",
         "label": "Attachments Form",
         "type": "selectbox",
-        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=forms",
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apinotification.CpaNotificationPlugin/service?action=forms",
         "description": "Select the form containing the file upload fields."
       },
       {
@@ -98,7 +91,7 @@
             "key": "fieldId",
             "label": "FIELD",
             "options_ajax_on_change": "attachmentsForm",
-            "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apiemail.ApiEmailTool/service?action=listFields"
+            "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apinotification.CpaNotificationPlugin/service?action=listFields"
           },
           {
             "key": "recordId",
@@ -132,7 +125,10 @@
     ]
   },
   {
-    "title": "API Settings",
+    "title": "Email API",
+    "control_field": "channel",
+    "control_value": "email|both",
+    "control_use_regex": "true",
     "properties": [
       {
         "name": "apiUrl",
@@ -145,6 +141,62 @@
         "label": "API URL (with attachments)",
         "type": "textfield",
         "description": "API endpoint for emails WITH attachments. Used automatically when attachments are present. Supports hash variables, e.g. #appVariable.sendEmailUrlFormData#."
+      }
+    ]
+  },
+  {
+    "title": "SMS Template",
+    "control_field": "channel",
+    "control_value": "sms|both",
+    "control_use_regex": "true",
+    "properties": [
+      {
+        "name": "smsTemplate",
+        "label": "SMS Template",
+        "type": "selectbox",
+        "required": "true",
+        "options_ajax": "[CONTEXT_PATH]/web/json/plugin/com.chezhiyan.plugins.apinotification.CpaNotificationPlugin/service?action=smsTemplates",
+        "description": "Select an SMS template. HTML tags in the template message are stripped before sending."
+      },
+      {
+        "name": "smsDynamicParameters",
+        "label": "Dynamic Parameters",
+        "type": "grid",
+        "columns": [
+          { "key": "fieldId", "label": "Field ID" },
+          { "key": "label", "label": "Label" }
+        ],
+        "description": "Replace each Field ID found in the template message. A Label that looks like a hash variable (starts and ends with #, e.g. #form.comp_id_verify.consumer_name#) is resolved live against the current process; any other Label is sent as static text. Both styles can be mixed in this grid."
+      }
+    ]
+  },
+  {
+    "title": "SMS Recipients",
+    "control_field": "channel",
+    "control_value": "sms|both",
+    "control_use_regex": "true",
+    "properties": [
+      {
+        "name": "smsRecipients",
+        "label": "Mobile Number",
+        "type": "textfield",
+        "required": "true",
+        "description": "Comma separated mobile numbers and/or hash variables. Each number is sent as a separate request with its own retry cycle and audit record."
+      }
+    ]
+  },
+  {
+    "title": "SMS API",
+    "control_field": "channel",
+    "control_value": "sms|both",
+    "control_use_regex": "true",
+    "properties": [
+      {
+        "name": "smsApiUrl",
+        "label": "SMS API URL",
+        "type": "textfield",
+        "value": "#appVariable.sendMessageURL#",
+        "description": "SMS gateway endpoint. Type a literal URL, or use a hash variable like #appVariable.sendMessageURL# to pull it from an App Variable. Sends a {\"mobile\":\"...\",\"message\":\"...\"} payload per recipient."
       }
     ]
   }

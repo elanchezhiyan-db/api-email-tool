@@ -1,11 +1,12 @@
-package com.chezhiyan.plugins.apiemail.model;
+package com.chezhiyan.plugins.apinotification.model;
 
-public class EmailAuditLog {
+public class NotificationAuditLog {
 
     private String id;
     private String sentBy;
     private String sentAt;
-    private String mode;
+    private String channel;
+    private String message;
     private String templateName;
     private String recipientsTo;
     private String recipientsCc;
@@ -15,7 +16,7 @@ public class EmailAuditLog {
     private String status;
     private String errorMessage;
 
-    public EmailAuditLog() {
+    public NotificationAuditLog() {
     }
 
     public String getId() {
@@ -42,12 +43,20 @@ public class EmailAuditLog {
         this.sentAt = sentAt;
     }
 
-    public String getMode() {
-        return mode;
+    public String getChannel() {
+        return channel;
     }
 
-    public void setMode(String mode) {
-        this.mode = mode;
+    public void setChannel(String channel) {
+        this.channel = channel;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public String getTemplateName() {

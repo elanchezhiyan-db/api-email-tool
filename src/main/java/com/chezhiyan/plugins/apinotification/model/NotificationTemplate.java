@@ -1,16 +1,16 @@
-package com.chezhiyan.plugins.apiemail.model;
+package com.chezhiyan.plugins.apinotification.model;
 
-public class EmailTemplate {
+public class NotificationTemplate {
 
     private String id;
     private String templateName;
     private String subject;
     private String body;
 
-    public EmailTemplate() {
+    public NotificationTemplate() {
     }
 
-    public EmailTemplate(String id, String templateName, String subject, String body) {
+    public NotificationTemplate(String id, String templateName, String subject, String body) {
         this.id = id;
         this.templateName = templateName;
         this.subject = subject;

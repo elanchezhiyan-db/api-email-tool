@@ -1,4 +1,4 @@
-package com.chezhiyan.plugins.apiemail.service;
+package com.chezhiyan.plugins.apinotification.service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,62 +14,61 @@ import org.joget.apps.form.model.FormRow;
 import org.joget.apps.form.model.FormRowSet;
 import org.joget.commons.util.LogUtil;
 
-import com.chezhiyan.plugins.apiemail.model.EmailTemplate;
-import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
+import com.chezhiyan.plugins.apinotification.model.NotificationTemplate;
+import com.chezhiyan.plugins.apinotification.util.CpaNotificationConstants;
 
-public class EmailTemplateServiceImpl implements EmailTemplateService {
+public class NotificationTemplateServiceImpl implements NotificationTemplateService {
 
-    private static final String FORM_ID = "email_templates";
     private static final String TABLE_NAME = "templates";
 
     private static final Set<String> SKIP_FIELDS = new HashSet<String>(
-            Arrays.asList(ApiEmailToolConstants.SYSTEM_FIELDS));
+            Arrays.asList(CpaNotificationConstants.SYSTEM_FIELDS));
 
     @Override
-    public EmailTemplate getTemplate(AppDefinition appDef, String formId, String templateId) {
+    public NotificationTemplate getTemplate(AppDefinition appDef, String formId, String templateId) {
         if (templateId == null || templateId.trim().isEmpty()) {
             return null;
         }
         try {
             String tableName = resolveTableName(appDef, formId, TABLE_NAME);
-            FormRow row = getFormDataDao().load(FORM_ID, tableName, templateId);
+            FormRow row = getFormDataDao().load(CpaNotificationConstants.TEMPLATE_FORM_ID, tableName, templateId);
             if (row == null) {
                 return null;
             }
             return mapTemplate(row);
         } catch (Exception e) {
-            LogUtil.error(getClass().getName(), e, "Failed to load email template");
+            LogUtil.error(getClass().getName(), e, "Failed to load notification template");
             return null;
         }
     }
 
     @Override
-    public Collection<EmailTemplate> getTemplates(AppDefinition appDef, String formId) {
+    public Collection<NotificationTemplate> getTemplates(AppDefinition appDef, String formId) {
         return getAllTemplateOptions(appDef);
     }
 
     @Override
-    public Collection<EmailTemplate> getAllTemplateOptions(AppDefinition appDef) {
-        Collection<EmailTemplate> templates = new ArrayList<EmailTemplate>();
+    public Collection<NotificationTemplate> getAllTemplateOptions(AppDefinition appDef) {
+        Collection<NotificationTemplate> templates = new ArrayList<NotificationTemplate>();
         try {
-            String tableName = resolveTableName(appDef, FORM_ID, TABLE_NAME);
-            FormRowSet rows = getFormDataDao().find(FORM_ID, tableName, null, null, null, false, null, null);
+            String tableName = resolveTableName(appDef, CpaNotificationConstants.TEMPLATE_FORM_ID, TABLE_NAME);
+            FormRowSet rows = getFormDataDao().find(CpaNotificationConstants.TEMPLATE_FORM_ID, tableName, null, null, null, false, null, null);
             if (rows == null) {
                 return templates;
             }
             for (FormRow row : rows) {
-                EmailTemplate t = mapTemplate(row);
+                NotificationTemplate t = mapTemplate(row);
                 if (t != null) {
                     templates.add(t);
                 }
             }
         } catch (Exception e) {
-            LogUtil.error(getClass().getName(), e, "Failed to load email templates");
+            LogUtil.error(getClass().getName(), e, "Failed to load notification templates");
         }
         return templates;
     }
 
-    private EmailTemplate mapTemplate(FormRow row) {
+    private NotificationTemplate mapTemplate(FormRow row) {
         String templateNameValue = null;
         String subjectValue = null;
         String bodyValue = null;
@@ -91,7 +90,7 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         if (isBlank(templateNameValue) && isBlank(subjectValue) && isBlank(bodyValue)) {
             return null;
         }
-        return new EmailTemplate(row.getId(), templateNameValue, subjectValue, bodyValue);
+        return new NotificationTemplate(row.getId(), templateNameValue, subjectValue, bodyValue);
     }
 
     private FormDataDao getFormDataDao() {

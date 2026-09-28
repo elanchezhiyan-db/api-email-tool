@@ -1,4 +1,4 @@
-package com.chezhiyan.plugins.apiemail;
+package com.chezhiyan.plugins.apinotification;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,29 +20,31 @@ import org.joget.workflow.model.WorkflowAssignment;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.chezhiyan.plugins.apiemail.model.ConfigurationTemplate;
-import com.chezhiyan.plugins.apiemail.model.EmailTemplate;
-import com.chezhiyan.plugins.apiemail.service.ApiEmailSenderService;
-import com.chezhiyan.plugins.apiemail.service.ApiEmailSenderServiceImpl;
-import com.chezhiyan.plugins.apiemail.service.ConfigurationTemplateService;
-import com.chezhiyan.plugins.apiemail.service.ConfigurationTemplateServiceImpl;
-import com.chezhiyan.plugins.apiemail.service.EmailTemplateService;
-import com.chezhiyan.plugins.apiemail.service.EmailTemplateServiceImpl;
-import com.chezhiyan.plugins.apiemail.util.ApiEmailToolConstants;
-import com.chezhiyan.plugins.apiemail.util.ParticipantEmailResolver;
-import com.chezhiyan.plugins.apiemail.web.EmailTemplateOptionsWebService;
+import com.chezhiyan.plugins.apinotification.model.NotificationTemplate;
+import com.chezhiyan.plugins.apinotification.model.SmsTemplate;
+import com.chezhiyan.plugins.apinotification.service.EmailNotificationSenderService;
+import com.chezhiyan.plugins.apinotification.service.EmailNotificationSenderServiceImpl;
+import com.chezhiyan.plugins.apinotification.service.NotificationTemplateService;
+import com.chezhiyan.plugins.apinotification.service.NotificationTemplateServiceImpl;
+import com.chezhiyan.plugins.apinotification.service.SmsNotificationSenderService;
+import com.chezhiyan.plugins.apinotification.service.SmsNotificationSenderServiceImpl;
+import com.chezhiyan.plugins.apinotification.service.SmsTemplateService;
+import com.chezhiyan.plugins.apinotification.service.SmsTemplateServiceImpl;
+import com.chezhiyan.plugins.apinotification.util.CpaNotificationConstants;
+import com.chezhiyan.plugins.apinotification.util.SmsMessageBuilder;
+import com.chezhiyan.plugins.apinotification.web.NotificationOptionsWebService;
 
-public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebSupport {
+public class CpaNotificationPlugin extends DefaultApplicationPlugin implements PluginWebSupport {
 
-    private final EmailTemplateService templateService = new EmailTemplateServiceImpl();
-    private final ConfigurationTemplateService configurationTemplateService = new ConfigurationTemplateServiceImpl();
-    private final ParticipantEmailResolver participantEmailResolver = new ParticipantEmailResolver();
-    private final ApiEmailSenderService apiEmailSenderService = new ApiEmailSenderServiceImpl();
-    private final EmailTemplateOptionsWebService optionsWebService = new EmailTemplateOptionsWebService();
+    private final NotificationTemplateService templateService = new NotificationTemplateServiceImpl();
+    private final SmsTemplateService smsTemplateService = new SmsTemplateServiceImpl();
+    private final EmailNotificationSenderService emailSenderService = new EmailNotificationSenderServiceImpl();
+    private final SmsNotificationSenderService smsSenderService = new SmsNotificationSenderServiceImpl();
+    private final NotificationOptionsWebService optionsWebService = new NotificationOptionsWebService();
 
     @Override
     public String getName() {
-        return "API Email Tool (Template)";
+        return "CPA Notification Plugin";
     }
 
     @Override
@@ -52,12 +54,12 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
 
     @Override
     public String getDescription() {
-        return "Sends an email via API using a DB-backed template form with hash variable support.";
+        return "Sends notifications over an email and/or SMS channel via API, using a DB-backed template form with hash variable support.";
     }
 
     @Override
     public String getLabel() {
-        return "API Email Tool (Template)";
+        return "CPA Notification Plugin";
     }
 
     @Override
@@ -67,7 +69,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
 
     @Override
     public String getPropertyOptions() {
-        return AppUtil.readPluginResource(getClass().getName(), "/properties/emailApiTool.json", null, true, null);
+        return AppUtil.readPluginResource(getClass().getName(), "/properties/cpaNotificationPlugin.json", null, true, null);
     }
 
     @SuppressWarnings("unchecked")
@@ -77,114 +79,213 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
         AppDefinition appDef = (AppDefinition) properties.get("appDef");
 
         try {
-            String mode = (String) properties.get(ApiEmailToolConstants.PROP_MODE);
-            if (isBlank(mode)) {
-                mode = ApiEmailToolConstants.MODE_MANUAL;
+            String channel = (String) properties.get(CpaNotificationConstants.PROP_CHANNEL);
+            if (isBlank(channel)) {
+                channel = CpaNotificationConstants.CHANNEL_EMAIL;
             }
 
-            String templateId = (String) properties.get(ApiEmailToolConstants.PROP_TEMPLATE);
-            if (isBlank(templateId)) {
-                throw new PluginException("API Email Tool: no template selected");
-            }
-
-            EmailTemplate template = templateService.getTemplate(appDef, "email_templates", templateId);
-            if (template == null) {
-                throw new PluginException("API Email Tool: template not found in form");
-            }
-            if (isBlank(template.getSubject())) {
-                LogUtil.warn(getClass().getName(), "API Email Tool: template has empty subject");
-            }
-            if (isBlank(template.getBody())) {
-                LogUtil.warn(getClass().getName(), "API Email Tool: template has empty body");
-            }
-
-            String templateName = template.getTemplateName();
             String triggeredBy = resolveTriggeredBy(assignment);
 
-            String subject = AppUtil.processHashVariable(template.getSubject(), assignment, null, null, appDef);
-            String body = AppUtil.processHashVariable(template.getBody(), assignment, null, null, appDef);
-
-            Object rawDynamicParams = properties.get(ApiEmailToolConstants.PROP_DYNAMIC_PARAMS);
-            Object[] dynamicParamsArr = rawDynamicParams instanceof Object[] ? (Object[]) rawDynamicParams : null;
-            if (dynamicParamsArr != null && dynamicParamsArr.length > 0) {
-                for (Object o : dynamicParamsArr) {
-                    Map mapping = (Map) o;
-                    Object keyObj = mapping.get(ApiEmailToolConstants.GRID_KEY);
-                    Object valueObj = mapping.get(ApiEmailToolConstants.GRID_VALUE);
-                    if (keyObj == null || valueObj == null) {
-                        continue;
-                    }
-                    String key = keyObj.toString().trim();
-                    String value = valueObj.toString().trim();
-                    if (key.isEmpty() || value.isEmpty()) {
-                        continue;
-                    }
-                    value = AppUtil.processHashVariable(value, assignment, null, null, appDef);
-                    body = body.replaceAll(key, value);
-                    LogUtil.info(getClass().getName(),
-                            "API Email Tool: dynamic parameter replaced " + key + " = " + value);
-                }
+            if (sendsEmail(channel)) {
+                sendEmail(properties, appDef, assignment, triggeredBy);
             }
 
-            String to;
-            String cc;
-            String bcc;
-
-            String apiUrl = (String) properties.get(ApiEmailToolConstants.PROP_API_URL);
-            String apiUrlWithAttachments =
-                    (String) properties.get(ApiEmailToolConstants.PROP_API_URL_WITH_ATTACHMENTS);
-
-            if (ApiEmailToolConstants.MODE_MANUAL.equals(mode)) {
-                to = (String) properties.get(ApiEmailToolConstants.PROP_TO);
-                cc = (String) properties.get(ApiEmailToolConstants.PROP_CC);
-                bcc = (String) properties.get(ApiEmailToolConstants.PROP_BCC);
-            } else {
-                String configurationTemplateId =
-                        (String) properties.get(ApiEmailToolConstants.PROP_CONFIGURATION_TEMPLATE);
-                if (isBlank(configurationTemplateId)) {
-                    throw new PluginException("API Email Tool: no configuration template selected");
-                }
-
-                ConfigurationTemplate configurationTemplate =
-                        configurationTemplateService.getConfiguration(appDef, configurationTemplateId);
-                if (configurationTemplate == null) {
-                    throw new PluginException("API Email Tool: configuration template not found in form");
-                }
-
-                to = participantEmailResolver.resolve(configurationTemplate.getTo(), assignment, appDef);
-                cc = participantEmailResolver.resolve(configurationTemplate.getCc(), assignment, appDef);
-                bcc = participantEmailResolver.resolve(configurationTemplate.getBcc(), assignment, appDef);
-
-                LogUtil.info(getClass().getName(),
-                        "API Email Tool: auto recipients resolved, to=" + to
-                        + " cc=" + cc + " bcc=" + bcc);
+            if (sendsSms(channel)) {
+                sendSms(properties, appDef, assignment);
             }
-
-            to = AppUtil.processHashVariable(to, assignment, null, null, appDef);
-            cc = AppUtil.processHashVariable(cc, assignment, null, null, appDef);
-            bcc = AppUtil.processHashVariable(bcc, assignment, null, null, appDef);
-            apiUrl = AppUtil.processHashVariable(apiUrl, assignment, null, null, appDef);
-            apiUrlWithAttachments =
-                    AppUtil.processHashVariable(apiUrlWithAttachments, assignment, null, null, appDef);
-
-            String resolvedAttachmentsJson = resolveAttachments(
-                    properties, appDef, assignment);
-
-            apiEmailSenderService.send(
-                    assignment, appDef,
-                    apiUrl, apiUrlWithAttachments,
-                    to, cc, bcc, subject, body,
-                    resolvedAttachmentsJson,
-                    triggeredBy,
-                    templateName,
-                    mode
-            );
 
         } catch (Exception e) {
-            LogUtil.error(getClass().getName(), e, "API Email Tool failed to execute");
+            LogUtil.error(getClass().getName(), e, "CPA Notification failed to execute");
         }
 
         return null;
+    }
+
+    private boolean sendsEmail(String channel) {
+        return CpaNotificationConstants.CHANNEL_EMAIL.equals(channel)
+                || CpaNotificationConstants.CHANNEL_BOTH.equals(channel);
+    }
+
+    private boolean sendsSms(String channel) {
+        return CpaNotificationConstants.CHANNEL_SMS.equals(channel)
+                || CpaNotificationConstants.CHANNEL_BOTH.equals(channel);
+    }
+
+    private void sendEmail(
+            Map properties,
+            AppDefinition appDef,
+            WorkflowAssignment assignment,
+            String triggeredBy) {
+
+        String templateId = (String) properties.get(CpaNotificationConstants.PROP_TEMPLATE);
+        if (isBlank(templateId)) {
+            throw new PluginException("CPA Notification: no email template selected");
+        }
+
+        NotificationTemplate template = templateService.getTemplate(
+                appDef, CpaNotificationConstants.TEMPLATE_FORM_ID, templateId);
+        if (template == null) {
+            throw new PluginException("CPA Notification: email template not found in form");
+        }
+        if (isBlank(template.getSubject())) {
+            LogUtil.warn(getClass().getName(), "CPA Notification: template has empty subject");
+        }
+        if (isBlank(template.getBody())) {
+            LogUtil.warn(getClass().getName(), "CPA Notification: template has empty body");
+        }
+
+        String subject = AppUtil.processHashVariable(
+                template.getSubject(), assignment, null, null, appDef);
+        String body = AppUtil.processHashVariable(
+                template.getBody(), assignment, null, null, appDef);
+
+        Object rawDynamicParams = properties.get(CpaNotificationConstants.PROP_DYNAMIC_PARAMS);
+        if (rawDynamicParams instanceof Object[]) {
+            for (Object o : (Object[]) rawDynamicParams) {
+                Map mapping = (Map) o;
+                Object keyObj = mapping.get(CpaNotificationConstants.GRID_KEY);
+                Object valueObj = mapping.get(CpaNotificationConstants.GRID_VALUE);
+                if (keyObj == null || valueObj == null) {
+                    continue;
+                }
+                String key = keyObj.toString().trim();
+                String value = valueObj.toString().trim();
+                if (key.isEmpty() || value.isEmpty()) {
+                    continue;
+                }
+                value = AppUtil.processHashVariable(value, assignment, null, null, appDef);
+                body = body.replaceAll(key, value);
+                LogUtil.info(getClass().getName(),
+                        "CPA Notification: dynamic parameter replaced " + key + " = " + value);
+            }
+        }
+
+        String to = (String) properties.get(CpaNotificationConstants.PROP_TO);
+        String cc = (String) properties.get(CpaNotificationConstants.PROP_CC);
+        String bcc = (String) properties.get(CpaNotificationConstants.PROP_BCC);
+        String apiUrl = (String) properties.get(CpaNotificationConstants.PROP_API_URL);
+        String apiUrlWithAttachments =
+                (String) properties.get(CpaNotificationConstants.PROP_API_URL_WITH_ATTACHMENTS);
+
+        to = AppUtil.processHashVariable(to, assignment, null, null, appDef);
+        cc = AppUtil.processHashVariable(cc, assignment, null, null, appDef);
+        bcc = AppUtil.processHashVariable(bcc, assignment, null, null, appDef);
+        apiUrl = AppUtil.processHashVariable(apiUrl, assignment, null, null, appDef);
+        apiUrlWithAttachments =
+                AppUtil.processHashVariable(apiUrlWithAttachments, assignment, null, null, appDef);
+
+        String resolvedAttachmentsJson = resolveAttachments(properties, appDef, assignment);
+
+        emailSenderService.send(
+                assignment, appDef,
+                apiUrl, apiUrlWithAttachments,
+                to, cc, bcc, subject, body,
+                resolvedAttachmentsJson,
+                triggeredBy,
+                template.getTemplateName(),
+                CpaNotificationConstants.CHANNEL_EMAIL
+        );
+    }
+
+    private void sendSms(
+            Map properties,
+            AppDefinition appDef,
+            WorkflowAssignment assignment) {
+
+        String templateName = resolveSmsProperty(
+                properties, CpaNotificationConstants.PROP_SMS_TEMPLATE, appDef, assignment);
+        if (isBlank(templateName)) {
+            LogUtil.error(getClass().getName(), null,
+                    "CPA Notification: no SMS template selected");
+            return;
+        }
+
+        SmsTemplate template = smsTemplateService.getTemplateByName(appDef, templateName);
+        if (template == null) {
+            LogUtil.error(getClass().getName(), null,
+                    "CPA Notification: SMS template not found in form: " + templateName);
+            return;
+        }
+
+        Object rawDynamicParameters =
+                properties.get(CpaNotificationConstants.PROP_SMS_DYNAMIC_PARAMETERS);
+        String message = SmsMessageBuilder.build(
+                template.getMessage(), rawDynamicParameters, assignment, appDef);
+
+        String smsApiUrl = resolveSmsProperty(
+                properties, CpaNotificationConstants.PROP_SMS_API_URL, appDef, assignment);
+        String smsRecipients = resolveSmsProperty(
+                properties, CpaNotificationConstants.PROP_SMS_RECIPIENTS, appDef, assignment);
+
+        LogUtil.info(getClass().getName(),
+                "CPA Notification: SMS resolved - template=" + templateName
+                + " recipientEntries=" + countEntries(smsRecipients)
+                + " messageLength=" + (message != null ? message.length() : 0));
+
+        smsSenderService.send(smsApiUrl, smsRecipients, message, templateName);
+    }
+
+    /**
+     * Counts the entries in a recipients value without logging the numbers themselves.
+     */
+    private int countEntries(String recipients) {
+        if (recipients == null || recipients.trim().isEmpty()) {
+            return 0;
+        }
+        return recipients.trim().split("[,;\\s]+").length;
+    }
+
+    /**
+     * Reads an SMS property and resolves any hash variable it still holds.
+     *
+     * The raw properties map only resolves hash variables when Joget hands the plugin
+     * its wrapped, hash aware map. That wrapper is not present on every execution path
+     * (userview triggered tools, form triggers, PluginManager.execute), so a value such
+     * as "#form.customer.mobile#" used to reach the gateway as that literal text and
+     * every number was answered with "400 Bad Request". getPropertyString() performs the
+     * same resolution the standalone Idelli SMS Tool relies on, and the explicit
+     * processHashVariable() call is the safety net for the paths without the wrapper.
+     */
+    private String resolveSmsProperty(
+            Map properties,
+            String key,
+            AppDefinition appDef,
+            WorkflowAssignment assignment) {
+
+        String value = getPropertyString(key);
+
+        if (value == null) {
+            Object raw = properties != null ? properties.get(key) : null;
+            value = raw != null ? raw.toString() : "";
+        }
+
+        String resolved = value;
+
+        try {
+            resolved = AppUtil.processHashVariable(value, assignment, null, null, appDef);
+        } catch (Exception e) {
+            LogUtil.warn(getClass().getName(),
+                    "CPA Notification: could not resolve hash variables in SMS property "
+                    + key + ": " + e.getMessage());
+        }
+
+        if (resolved == null) {
+            resolved = "";
+        }
+
+        if (!value.equals(resolved)) {
+            // The recipients value is not echoed: a property that still holds a hash variable
+            // is the case worth seeing, and the resolved number itself must stay out of the log.
+            boolean sensitive = CpaNotificationConstants.PROP_SMS_RECIPIENTS.equals(key);
+            LogUtil.info(getClass().getName(),
+                    "CPA Notification: resolved SMS property " + key
+                    + (sensitive
+                    ? " (unresolvedLength=" + value.length()
+                    + ", resolvedCount=" + countEntries(resolved) + ")"
+                    : " - " + value + " -> " + resolved));
+        }
+
+        return resolved.trim();
     }
 
     private String resolveTriggeredBy(WorkflowAssignment assignment) {
@@ -194,14 +295,14 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 user = assignment.getProcessRequesterId();
             } catch (Exception e) {
                 LogUtil.warn(getClass().getName(),
-                        "API Email Tool: could not resolve process requester: " + e.getMessage());
+                        "CPA Notification: could not resolve process requester: " + e.getMessage());
             }
             if (user == null || user.trim().isEmpty()) {
                 try {
                     user = assignment.getAssigneeId();
                 } catch (Exception e) {
                     LogUtil.warn(getClass().getName(),
-                            "API Email Tool: could not resolve assignee: " + e.getMessage());
+                            "CPA Notification: could not resolve assignee: " + e.getMessage());
                 }
             }
         }
@@ -217,9 +318,9 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
 
         try {
             String attachmentsFormId =
-                    (String) properties.get(ApiEmailToolConstants.PROP_ATTACHMENTS_FORM);
+                    (String) properties.get(CpaNotificationConstants.PROP_ATTACHMENTS_FORM);
 
-            Object rawFields = properties.get(ApiEmailToolConstants.PROP_FORM_UPLOAD_FIELDS);
+            Object rawFields = properties.get(CpaNotificationConstants.PROP_FORM_UPLOAD_FIELDS);
             Object[] fieldsArr = rawFields instanceof Object[] ? (Object[]) rawFields : null;
 
             if (fieldsArr != null && fieldsArr.length > 0 && !isBlank(attachmentsFormId)) {
@@ -229,7 +330,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 for (Object o : fieldsArr) {
                     Map mapping = (Map) o;
 
-                    Object fieldIdObj = mapping.get(ApiEmailToolConstants.GRID_FIELD_ID);
+                    Object fieldIdObj = mapping.get(CpaNotificationConstants.GRID_FIELD_ID);
                     if (fieldIdObj == null) {
                         continue;
                     }
@@ -239,9 +340,9 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     }
 
                     boolean embed = "true".equals(
-                            mapping.get(ApiEmailToolConstants.GRID_EMBED));
+                            mapping.get(CpaNotificationConstants.GRID_EMBED));
 
-                    Object recordIdObj = mapping.get(ApiEmailToolConstants.GRID_RECORD_ID);
+                    Object recordIdObj = mapping.get(CpaNotificationConstants.GRID_RECORD_ID);
                     String recordId = recordIdObj != null ? recordIdObj.toString() : null;
                     recordId = AppUtil.processHashVariable(recordId, assignment, null, null, appDef);
                     if (isBlank(recordId) && assignment != null) {
@@ -249,7 +350,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     }
 
                     LogUtil.info(getClass().getName(),
-                            "API Email Tool: loading form upload field, form=" + attachmentsFormId
+                            "CPA Notification: loading form upload field, form=" + attachmentsFormId
                             + " field=" + gridFieldId + " recordId=" + recordId);
 
                     org.joget.apps.form.model.FormData formDataObj = new org.joget.apps.form.model.FormData();
@@ -260,7 +361,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
 
                     if (loadForm == null) {
                         LogUtil.warn(getClass().getName(),
-                                "API Email Tool: form not found: " + attachmentsFormId);
+                                "CPA Notification: form not found: " + attachmentsFormId);
                         continue;
                     }
 
@@ -268,19 +369,19 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                             org.joget.apps.form.service.FormUtil.findElement(gridFieldId, loadForm, formDataObj);
                     if (el == null) {
                         LogUtil.warn(getClass().getName(),
-                                "API Email Tool: field not found in form: " + gridFieldId);
+                                "CPA Notification: field not found in form: " + gridFieldId);
                         continue;
                     }
 
                     String value = org.joget.apps.form.service.FormUtil.getElementPropertyValue(el, formDataObj);
                     if (isBlank(value)) {
                         LogUtil.warn(getClass().getName(),
-                                "API Email Tool: field value is empty: " + gridFieldId);
+                                "CPA Notification: field value is empty: " + gridFieldId);
                         continue;
                     }
 
                     LogUtil.info(getClass().getName(),
-                            "API Email Tool: field value = " + value);
+                            "CPA Notification: field value = " + value);
 
                     String[] fileNames = value.split(";");
                     for (String fileName : fileNames) {
@@ -292,7 +393,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                         File file = FileUtil.getFile(fileName, el, recordId);
                         if (file == null || !file.exists()) {
                             LogUtil.warn(getClass().getName(),
-                                    "API Email Tool: form upload file not found: " + fileName);
+                                    "CPA Notification: form upload file not found: " + fileName);
                             continue;
                         }
 
@@ -305,9 +406,9 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 }
             }
 
-            Object rawFiles = properties.get(ApiEmailToolConstants.PROP_FILES);
+            Object rawFiles = properties.get(CpaNotificationConstants.PROP_FILES);
             LogUtil.info(getClass().getName(),
-                    "API Email Tool: files raw type=" + (rawFiles != null ? rawFiles.getClass().getName() : "null")
+                    "CPA Notification: files raw type=" + (rawFiles != null ? rawFiles.getClass().getName() : "null")
                     + " value=" + rawFiles);
             Object[] filesArr = null;
             if (rawFiles instanceof Object[]) {
@@ -320,13 +421,13 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                         filesArr[i] = ja.getJSONObject(i).toMap();
                     }
                 } catch (Exception ex) {
-                    LogUtil.error(getClass().getName(), ex, "API Email Tool: failed to parse files string");
+                    LogUtil.error(getClass().getName(), ex, "CPA Notification: failed to parse files string");
                 }
             }
 
             if (filesArr != null && filesArr.length > 0) {
                 LogUtil.info(getClass().getName(),
-                        "API Email Tool: processing " + filesArr.length + " file grid entries");
+                        "CPA Notification: processing " + filesArr.length + " file grid entries");
                 for (Object o : filesArr) {
                     Map mapping = (Map) o;
 
@@ -346,7 +447,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                     boolean embed = "true".equals(mapping.get("embed"));
 
                     LogUtil.info(getClass().getName(),
-                            "API Email Tool: processing file attachment path=" + path + " type=" + type);
+                            "CPA Notification: processing file attachment path=" + path + " type=" + type);
 
                     path = AppUtil.processHashVariable(path, assignment, null, null, appDef);
                     fileName = AppUtil.processHashVariable(fileName, assignment, null, null, appDef);
@@ -360,7 +461,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                             }
                             type = "System Path";
                             LogUtil.info(getClass().getName(),
-                                    "API Email Tool: resolved Joget form URL to local file: " + path);
+                                    "CPA Notification: resolved Joget form URL to local file: " + path);
                         }
                     }
 
@@ -374,11 +475,11 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             }
 
         } catch (Exception e) {
-            LogUtil.error(getClass().getName(), e, "API Email Tool: failed to resolve attachments");
+            LogUtil.error(getClass().getName(), e, "CPA Notification: failed to resolve attachments");
         }
 
         LogUtil.info(getClass().getName(),
-                "API Email Tool: resolved " + result.length() + " attachment(s)");
+                "CPA Notification: resolved " + result.length() + " attachment(s)");
 
         return result.toString();
     }
@@ -390,7 +491,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
         if (appDef == null) {
             appDef = resolveAppFromRequest(request);
         }
-        optionsWebService.service(request, response, appDef, templateService, configurationTemplateService);
+        optionsWebService.service(request, response, appDef, templateService, smsTemplateService);
     }
 
     private AppDefinition resolveAppFromRequest(HttpServletRequest request) {
@@ -409,7 +510,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
                 }
             }
         } catch (Exception e) {
-            LogUtil.warn(getClass().getName(), "Could not resolve app from request: " + e.getMessage());
+            LogUtil.warn(getClass().getName(), "CPA Notification: could not resolve app from request: " + e.getMessage());
         }
         return null;
     }
@@ -462,7 +563,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             String fileName = parts[2];
 
             LogUtil.info(getClass().getName(),
-                    "API Email Tool: parsing Joget form URL, formId=" + formId
+                    "CPA Notification: parsing Joget form URL, formId=" + formId
                     + " recordId=" + recordId + " fileName=" + fileName);
 
             org.joget.apps.app.service.AppService appService =
@@ -476,7 +577,7 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
 
             if (loadForm == null) {
                 LogUtil.warn(getClass().getName(),
-                        "API Email Tool: form not found for Joget URL: " + formId);
+                        "CPA Notification: form not found for Joget URL: " + formId);
                 return null;
             }
 
@@ -486,12 +587,12 @@ public class ApiEmailTool extends DefaultApplicationPlugin implements PluginWebS
             }
 
             LogUtil.warn(getClass().getName(),
-                    "API Email Tool: could not find file " + fileName + " in form " + formId);
+                    "CPA Notification: could not find file " + fileName + " in form " + formId);
             return null;
 
         } catch (Exception e) {
             LogUtil.error(getClass().getName(), e,
-                    "API Email Tool: failed to resolve Joget form URL: " + urlString);
+                    "CPA Notification: failed to resolve Joget form URL: " + urlString);
             return null;
         }
     }

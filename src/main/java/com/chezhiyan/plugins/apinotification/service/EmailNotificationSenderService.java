@@ -1,9 +1,9 @@
-package com.chezhiyan.plugins.apiemail.service;
+package com.chezhiyan.plugins.apinotification.service;
 
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.workflow.model.WorkflowAssignment;
 
-public interface ApiEmailSenderService {
+public interface EmailNotificationSenderService {
 
     void send(
             WorkflowAssignment assignment,
@@ -18,6 +18,6 @@ public interface ApiEmailSenderService {
             String resolvedAttachmentsJson,
             String triggeredBy,
             String templateName,
-            String mode
+            String channel
     );
 }

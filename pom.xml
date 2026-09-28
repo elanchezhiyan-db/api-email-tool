@@ -1,14 +1,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.chezhiyan.plugins</groupId>
-  <artifactId>api-email-tool</artifactId>
+  <artifactId>cpa-notification-plugin</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>bundle</packaging>
-  <name>api-email-tool</name>
-  <url>http://www.example.com</url>
+  <name>cpa-notification-plugin</name>
+  <url>https://github.com/elanchezhiyan-db/api-email-tool</url>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.release>11</maven.compiler.release> 
+    <maven.compiler.release>11</maven.compiler.release>
     <joget.version>8.0-SNAPSHOT</joget.version>
   </properties>
   <repositories>
@@ -94,6 +94,10 @@
           <version>3.4.2</version>
         </plugin>
         <plugin>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.5.1</version>
+        </plugin>
+        <plugin>
           <artifactId>maven-install-plugin</artifactId>
           <version>3.1.2</version>
         </plugin>
@@ -113,6 +117,21 @@
     </pluginManagement>
     <plugins>
       <plugin>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
         <version>5.1.9</version>
@@ -120,7 +139,7 @@
         <configuration>
           <instructions>
             <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
-            <Bundle-Activator>com.chezhiyan.plugins.apiemail.ApiEmailTool</Bundle-Activator>
+            <Bundle-Activator>com.chezhiyan.plugins.apinotification.CpaNotificationPlugin</Bundle-Activator>
             <Export-Package>com.chezhiyan.plugins.*</Export-Package>
             <Import-Package>
               javax.servlet;version="[0.0.0,5.0.0)",
